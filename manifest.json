@@ -1,0 +1,11 @@
+{
+  "id": "meridian-timeline",
+  "name": "Meridian Timeline",
+  "version": "3.3.0",
+  "minAppVersion": "1.5.0",
+  "description": "Explore dated notes and historical spans on an interactive, local-only timeline.",
+  "author": "Rahul",
+  "authorUrl": "https://github.com/tutivsoft-com",
+  "isDesktopOnly": false
+}
+

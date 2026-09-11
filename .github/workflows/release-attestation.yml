@@ -1,0 +1,29 @@
+name: Release attestation
+
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  attest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm run build
+      - name: Record artifact digests
+        shell: bash
+        run: |
+          sha256sum publish/main.js publish/manifest.json publish/styles.css > publish/SHA256SUMS
+          printf 'commit=%s\nversion=%s\n' "$GITHUB_SHA" "$(tr -d '\r\n' < VERSION)" > publish/ATTESTATION.txt
+          cat publish/SHA256SUMS >> publish/ATTESTATION.txt
+

@@ -1,0 +1,33 @@
+.meridian-root { --meridian-accent: var(--interactive-accent); padding: 18px 22px 36px; }
+.meridian-header { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; }
+.meridian-header h1 { margin: 0; font-size: 1.45em; }
+.meridian-header p { color: var(--text-muted); margin: 4px 0 12px; }
+.meridian-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.meridian-controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 10px 0; }
+.meridian-controls input, .meridian-controls select { min-height: 30px; max-width: 220px; }
+.meridian-controls label { color: var(--text-muted); font-size: .9em; }
+.meridian-info, .meridian-status { color: var(--text-muted); font-size: .88em; margin: 8px 0; }
+.meridian-viewport { overflow: auto; min-height: 265px; border: 1px solid var(--background-modifier-border); border-radius: 8px; background: var(--background-secondary); }
+.meridian-event-layer { position: relative; min-width: 900px; background: repeating-linear-gradient(90deg, transparent 0, transparent calc(16.666% - 1px), var(--background-modifier-border) calc(16.666% - 1px), var(--background-modifier-border) 16.666%); }
+.meridian-axis { position: absolute; top: 8px; left: 0; right: 0; height: 28px; border-bottom: 1px solid var(--background-modifier-border); }
+.meridian-tick { position: absolute; transform: translateX(-50%); color: var(--text-muted); font-size: .78em; }
+.meridian-event { position: absolute; min-height: 38px; overflow: hidden; text-align: left; border: 1px solid var(--interactive-accent); border-radius: 6px; background: color-mix(in srgb, var(--interactive-accent) 18%, var(--background-primary)); padding: 6px 8px; cursor: pointer; white-space: nowrap; text-overflow: ellipsis; }
+.meridian-event:hover, .meridian-event:focus-visible { background: color-mix(in srgb, var(--interactive-accent) 32%, var(--background-primary)); outline: 2px solid var(--interactive-accent); }
+.meridian-event-title { overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
+.meridian-approximate { border-style: dashed; background: color-mix(in srgb, var(--color-orange) 20%, var(--background-primary)); }
+.meridian-uncertain { border-color: var(--text-warning); background: color-mix(in srgb, var(--text-warning) 18%, var(--background-primary)); }
+.meridian-open-ended { border-right-style: dotted; border-right-width: 4px; }
+.meridian-badge { display: inline-block; margin-left: 5px; border-radius: 50%; background: var(--text-warning); color: var(--background-primary); width: 17px; height: 17px; text-align: center; line-height: 17px; font-weight: 700; }
+.meridian-empty { padding: 82px 22px; text-align: center; color: var(--text-muted); }
+.meridian-review { margin-top: 18px; }
+.meridian-review h2 { font-size: 1.05em; }
+.meridian-review ul { margin-top: 6px; }
+.meridian-review button { background: none; border: 0; padding: 0; color: var(--text-accent); cursor: pointer; }
+.meridian-settings-preview { padding: 12px 14px; border: 1px solid var(--background-modifier-border); border-radius: 8px; margin: 12px 0 18px; }
+.meridian-settings-preview h3 { margin: 0 0 4px; }
+.meridian-settings-preview p { color: var(--text-muted); margin: 0 0 10px; }
+.meridian-preview-bars { display: flex; gap: 8px; flex-wrap: wrap; }
+.meridian-preview-bar { border: 1px solid var(--interactive-accent); border-radius: 5px; padding: 5px 9px; background: color-mix(in srgb, var(--interactive-accent) 18%, var(--background-primary)); }
+.meridian-preview-approx { border-style: dashed; }
+.meridian-preview-uncertain { border-color: var(--text-warning); }
+@media (max-width: 700px) { .meridian-header { flex-direction: column; } .meridian-controls input[type="search"] { min-width: 100%; max-width: none; } }
