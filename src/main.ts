@@ -1,10 +1,12 @@
 import { ItemView, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile, WorkspaceLeaf } from "obsidian";
+import { consumeTimelineUse, generateDeviceId, openCheckout, syncPurchasedUses } from "./billing";
 import { ignoredPath, matchesFilters, type FilterState } from "./filter";
 import { parseNote, settingsHash } from "./parser";
 import { DEFAULT_SETTINGS } from "./settings";
 import type { CachedNote, GroupBy, NamedView, TimelineEvent, TimelineSettings } from "./types";
 
 export const VIEW_TYPE_MERIDIAN = "meridian-timeline-view";
+type TimelineScanResult = { events: TimelineEvent[]; review: CachedNote["review"] };
 
 const emptyFilters = (): FilterState => ({ search: "", folder: "", tag: "", kind: "", uncertainty: "", from: "", to: "" });
 
@@ -12,11 +14,14 @@ export default class MeridianTimelinePlugin extends Plugin {
   declare settings: TimelineSettings;
   private view: MeridianTimelineView | null = null;
   private scanController: AbortController | null = null;
+  private scanInFlight: Promise<TimelineScanResult> | null = null;
   private refreshTimer: number | null = null;
+  private billingPollTimer: number | null = null;
 
   async onload(): Promise<void> {
     const saved = await this.loadData() as Partial<TimelineSettings> | null;
     this.settings = { ...DEFAULT_SETTINGS, ...saved, eraLabels: { ...DEFAULT_SETTINGS.eraLabels, ...(saved?.eraLabels ?? {}) }, cache: saved?.cache ?? {}, namedViews: saved?.namedViews ?? [] };
+    if (!this.settings.constanceDeviceId) { this.settings.constanceDeviceId = generateDeviceId(); await this.saveSettings(); }
     this.registerView(VIEW_TYPE_MERIDIAN, (leaf) => { this.view = new MeridianTimelineView(leaf, this); return this.view; });
     this.addRibbonIcon("clock-3", "Open Meridian Timeline", () => void this.activateView());
     this.addCommand({ id: "open-timeline", name: "Meridian: Open timeline", callback: () => void this.activateView() });
@@ -24,14 +29,32 @@ export default class MeridianTimelinePlugin extends Plugin {
     this.addCommand({ id: "fit-all-events", name: "Meridian: Fit all timeline events", callback: () => this.view?.fitAll() });
     this.addCommand({ id: "cancel-scan", name: "Meridian: Cancel timeline scan", callback: () => this.cancelScan() });
     this.addCommand({ id: "save-named-view", name: "Meridian: Save current timeline view", callback: () => this.view?.saveNamedView() });
+    void syncPurchasedUses(this);
     this.addSettingTab(new MeridianSettingTab(this.app, this));
     this.registerEvent(this.app.vault.on("modify", (file) => { if (file instanceof TFile && file.extension.toLowerCase() === "md") this.invalidateAndRefresh(file.path); }));
     this.registerEvent(this.app.vault.on("delete", (file) => this.invalidateAndRefresh(file.path)));
     this.registerEvent(this.app.vault.on("rename", (file, oldPath) => { delete this.settings.cache[oldPath]; this.invalidateAndRefresh(file.path); }));
   }
 
-  onunload(): void { this.cancelScan(); if (this.refreshTimer !== null) window.clearTimeout(this.refreshTimer); }
+  onunload(): void {
+    this.cancelScan();
+    if (this.refreshTimer !== null) window.clearTimeout(this.refreshTimer);
+    if (this.billingPollTimer !== null) window.clearInterval(this.billingPollTimer);
+  }
   async saveSettings(): Promise<void> { await this.saveData(this.settings); }
+  pollAfterCheckout(): void {
+    if (this.billingPollTimer !== null) window.clearInterval(this.billingPollTimer);
+    let attempts = 0;
+    void syncPurchasedUses(this);
+    this.billingPollTimer = window.setInterval(() => {
+      attempts += 1;
+      void syncPurchasedUses(this);
+      if (attempts >= 6 && this.billingPollTimer !== null) {
+        window.clearInterval(this.billingPollTimer);
+        this.billingPollTimer = null;
+      }
+    }, 15000);
+  }
   async activateView(): Promise<void> {
     const existing = this.app.workspace.getLeavesOfType(VIEW_TYPE_MERIDIAN)[0];
     const leaf = existing ?? this.app.workspace.getRightLeaf(false);
@@ -42,24 +65,42 @@ export default class MeridianTimelinePlugin extends Plugin {
     await this.view?.loadTimeline();
   }
   async refresh(): Promise<void> { await this.view?.loadTimeline(true); }
-  cancelScan(): void { this.scanController?.abort(); this.scanController = null; this.view?.showScanMessage("Scan cancelled. Showing the events found so far."); }
-  private invalidateAndRefresh(path: string): void { delete this.settings.cache[path]; if (this.refreshTimer !== null) window.clearTimeout(this.refreshTimer); this.refreshTimer = window.setTimeout(() => { void this.refresh(); }, 350); }
-  async scan(onProgress: (done: number, total: number) => void): Promise<{ events: TimelineEvent[]; review: CachedNote["review"] }> {
-    this.scanController?.abort();
-    const controller = new AbortController(); this.scanController = controller;
-    const files = this.app.vault.getMarkdownFiles().filter((file) => !ignoredPath(file.path, this.settings.ignoredFolders, this.settings.ignoredPatterns));
-    const hash = settingsHash(this.settings); const events: TimelineEvent[] = []; const review: CachedNote["review"] = [];
-    for (let index = 0; index < files.length; index++) {
-      if (controller.signal.aborted) break;
-      const file = files[index]; const cached = this.settings.cache[file.path];
-      let result: CachedNote;
-      if (cached && cached.mtime === file.stat.mtime && cached.size === file.stat.size && cached.settingsHash === hash) result = cached;
-      else { const parsed = parseNote(file.path, await this.app.vault.cachedRead(file), this.settings.dateProperties, this.settings.contentPatterns, this.settings.eraLabels); result = { mtime: file.stat.mtime, size: file.stat.size, settingsHash: hash, events: parsed.events, review: parsed.review }; this.settings.cache[file.path] = result; }
-      events.push(...result.events); review.push(...result.review); onProgress(index + 1, files.length);
-    }
+  cancelScan(): void {
+    const controller = this.scanController;
+    controller?.abort();
     this.scanController = null;
-    events.sort((a, b) => a.start - b.start || a.title.localeCompare(b.title));
-    return { events: events.slice(0, this.settings.maxEvents), review };
+    if (controller) this.view?.showScanMessage("Scan cancelled. No usage was consumed.");
+  }
+  private invalidateAndRefresh(path: string): void { delete this.settings.cache[path]; if (this.refreshTimer !== null) window.clearTimeout(this.refreshTimer); this.refreshTimer = window.setTimeout(() => { void this.refresh(); }, 350); }
+  async scan(onProgress: (done: number, total: number) => void): Promise<TimelineScanResult> {
+    if (this.scanInFlight) return this.scanInFlight;
+    const operation = this.runScan(onProgress);
+    this.scanInFlight = operation;
+    try { return await operation; } finally { if (this.scanInFlight === operation) this.scanInFlight = null; }
+  }
+  private async runScan(onProgress: (done: number, total: number) => void): Promise<TimelineScanResult> {
+    const controller = new AbortController(); this.scanController = controller;
+    try {
+      const files = this.app.vault.getMarkdownFiles().filter((file) => !ignoredPath(file.path, this.settings.ignoredFolders, this.settings.ignoredPatterns));
+      const hash = settingsHash(this.settings); const events: TimelineEvent[] = []; const review: CachedNote["review"] = [];
+      for (let index = 0; index < files.length; index++) {
+        if (controller.signal.aborted) throw new Error("Timeline scan cancelled. No usage was consumed.");
+        const file = files[index]; const cached = this.settings.cache[file.path];
+        let result: CachedNote;
+        if (cached && cached.mtime === file.stat.mtime && cached.size === file.stat.size && cached.settingsHash === hash) result = cached;
+        else { const parsed = parseNote(file.path, await this.app.vault.cachedRead(file), this.settings.dateProperties, this.settings.contentPatterns, this.settings.eraLabels); result = { mtime: file.stat.mtime, size: file.stat.size, settingsHash: hash, events: parsed.events, review: parsed.review }; this.settings.cache[file.path] = result; }
+        events.push(...result.events); review.push(...result.review); onProgress(index + 1, files.length);
+      }
+      if (controller.signal.aborted) throw new Error("Timeline scan cancelled. No usage was consumed.");
+      events.sort((a, b) => a.start - b.start || a.title.localeCompare(b.title));
+      const result = { events: events.slice(0, this.settings.maxEvents), review };
+      // Meter only after the scan has completed successfully. The in-flight
+      // promise above coalesces duplicate opens/refreshes into one operation.
+      if (!(await consumeTimelineUse(this))) throw new Error("Timeline use unavailable.");
+      return result;
+    } finally {
+      if (this.scanController === controller) this.scanController = null;
+    }
   }
 }
 
@@ -82,9 +123,11 @@ export class MeridianTimelineView extends ItemView {
   async loadTimeline(force = false): Promise<void> {
     if (!this.statusEl) return;
     this.showScanMessage(force ? "Refreshing timeline…" : "Scanning vault…");
-    const result = await this.plugin.scan((done, total) => this.showScanMessage(`Scanning notes: ${done}/${total}`));
-    this.events = result.events; this.review = result.review; await this.plugin.saveSettings(); this.renderEvents();
-    this.showScanMessage(`${this.events.length} event${this.events.length === 1 ? "" : "s"} · ${this.review.length} item${this.review.length === 1 ? "" : "s"} to review`);
+    try {
+      const result = await this.plugin.scan((done, total) => this.showScanMessage(`Scanning notes: ${done}/${total}`));
+      this.events = result.events; this.review = result.review; await this.plugin.saveSettings(); this.renderEvents();
+      this.showScanMessage(`${this.events.length} event${this.events.length === 1 ? "" : "s"} · ${this.review.length} item${this.review.length === 1 ? "" : "s"} to review`);
+    } catch (error) { this.showScanMessage(error instanceof Error ? error.message : "Timeline scan failed."); }
   }
   fitAll(): void { this.zoom = 1; this.renderEvents(); }
   saveNamedView(): void { new SaveViewModal(this.app, (name) => { const view: NamedView = { name, ...this.filters, groupBy: this.groupBy }; this.plugin.settings.namedViews = [...this.plugin.settings.namedViews.filter((item) => item.name !== name), view]; void this.plugin.saveSettings(); new Notice(`Meridian saved “${name}”.`); this.renderControls(); }).open(); }
@@ -138,7 +181,11 @@ export class MeridianSettingTab extends PluginSettingTab {
     new Setting(containerEl).setName("Ignored folders").setDesc("Comma-separated vault-relative folders.").addText((text) => text.setValue(this.plugin.settings.ignoredFolders.join(", ")).onChange(async (value) => { this.plugin.settings.ignoredFolders = value.split(",").map((item) => item.trim()).filter(Boolean); await this.plugin.saveSettings(); }));
     new Setting(containerEl).setName("Ignored note patterns").setDesc("Optional regular expressions matched against vault paths.").addTextArea((text) => text.setValue(this.plugin.settings.ignoredPatterns.join("\n")).onChange(async (value) => { this.plugin.settings.ignoredPatterns = value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean); await this.plugin.saveSettings(); }));
     new Setting(containerEl).setName("Maximum events").setDesc("Protect responsiveness in very large vaults; the review list still reports all scanned notes.").addText((text) => text.setValue(String(this.plugin.settings.maxEvents)).onChange(async (value) => { const max = Math.max(100, Math.min(50000, Number(value) || 5000)); this.plugin.settings.maxEvents = max; await this.plugin.saveSettings(); }));
-    new Setting(containerEl).setName("Privacy and threat model").setHeading(); containerEl.createEl("p", { text: "Meridian is offline-first: it reads only Markdown files in the current vault through Obsidian’s local APIs. It makes no network requests, sends no note content, and does not use AI. Source notes are read-only. Parsed event data is cached in Obsidian plugin data; the cache may include note paths, titles, headings, tags, and timestamps, so protect the vault profile as you would any local index. Ignored folders and patterns are defense-in-depth for sensitive notes." });
+    new Setting(containerEl).setName("Billing").setHeading(); containerEl.createEl("p", { text: `Free installs include 3 timeline uses per local calendar day. After that, Meridian uses Constance credits: $1 buys 100 uses and $10 buys 1,000 uses. Remaining purchased uses: ${this.plugin.settings.purchasedUses.toLocaleString()}.` });
+    new Setting(containerEl).setName("Billing email").setDesc("Used only for the Constance checkout receipt.").addText((text) => text.setPlaceholder("you@example.com").setValue(this.plugin.settings.billingEmail).onChange(async (value) => { this.plugin.settings.billingEmail = value.trim(); await this.plugin.saveSettings(); }));
+    new Setting(containerEl).setName("Buy uses").setDesc("Checkout is provided by TutivSoft Constance; credits are tied to this installation.").addButton((button) => button.setButtonText("Buy $1 · 100 uses").onClick(() => openCheckout(this.plugin, "usd_001"))).addButton((button) => button.setButtonText("Buy $10 · 1,000 uses").setCta().onClick(() => openCheckout(this.plugin, "usd_010")));
+    new Setting(containerEl).setName("Refresh purchased balance").addButton((button) => button.setButtonText("Refresh").onClick(async () => { button.setDisabled(true); await syncPurchasedUses(this.plugin); button.setDisabled(false); this.display(); }));
+    new Setting(containerEl).setName("Privacy and threat model").setHeading(); containerEl.createEl("p", { text: "Meridian reads only Markdown files in the current vault through Obsidian’s local APIs and never sends note content. It does contact TutivSoft Constance only to sync and spend anonymous per-install usage credits and to open checkout when you explicitly buy uses. Source notes are read-only. Parsed event data is cached in Obsidian plugin data; the cache may include note paths, titles, headings, tags, and timestamps, so protect the vault profile accordingly." });
     new Setting(containerEl).setName("Named views").setHeading(); this.plugin.settings.namedViews.forEach((view) => new Setting(containerEl).setName(view.name).setDesc(`${view.search || "All notes"} · ${view.groupBy}`).addButton((button) => button.setButtonText("Delete").setWarning().onClick(async () => { this.plugin.settings.namedViews = this.plugin.settings.namedViews.filter((item) => item.name !== view.name); await this.plugin.saveSettings(); this.display(); })));
   }
 }

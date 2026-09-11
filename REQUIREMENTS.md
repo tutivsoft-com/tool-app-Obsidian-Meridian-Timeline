@@ -1,6 +1,6 @@
 # Meridian Timeline — Product Requirements
 
-Status: implemented — 3.3.0 MVP released
+Status: implemented — 3.4.4 release; 3.3.0 MVP baseline
 
 ## Product promise
 

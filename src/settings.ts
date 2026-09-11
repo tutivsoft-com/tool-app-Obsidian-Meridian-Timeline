@@ -12,5 +12,9 @@ export const DEFAULT_SETTINGS: TimelineSettings = {
   onboardingComplete: false,
   cache: {},
   namedViews: [],
+  constanceDeviceId: "",
+  billingEmail: "",
+  freeUsesDate: "",
+  freeUsesToday: 0,
+  purchasedUses: 0,
 };
-

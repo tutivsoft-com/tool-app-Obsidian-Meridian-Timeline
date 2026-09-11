@@ -202,5 +202,9 @@ export function parseNote(path: string, source: string, dateProperties: string[]
 }
 
 export function settingsHash(settings: Pick<import("./types").TimelineSettings, "dateProperties" | "contentPatterns" | "eraLabels">): string {
-  return stableId(JSON.stringify(settings));
+  return stableId(JSON.stringify({
+    dateProperties: settings.dateProperties,
+    contentPatterns: settings.contentPatterns,
+    eraLabels: settings.eraLabels,
+  }));
 }

@@ -13,6 +13,11 @@ export interface TimelineSettings {
   onboardingComplete: boolean;
   cache: Record<string, CachedNote>;
   namedViews: NamedView[];
+  constanceDeviceId: string;
+  billingEmail: string;
+  freeUsesDate: string;
+  freeUsesToday: number;
+  purchasedUses: number;
 }
 
 export interface NamedView {
@@ -76,4 +81,3 @@ export interface ParsedDate {
   approximate: boolean;
   year: number;
 }
-
