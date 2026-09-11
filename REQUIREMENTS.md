@@ -1,6 +1,6 @@
 # Meridian Timeline — Product Requirements
 
-Status: planning
+Status: implemented — 3.3.0 MVP released
 
 ## Product promise
 
@@ -84,4 +84,3 @@ AI results must be shown as suggestions with confidence and source text, never s
 - Unknown and ambiguous dates are visibly distinguished from exact dates.
 - One malformed note does not prevent the rest of the vault from appearing.
 - The complete MVP works offline with AI disabled.
-
