@@ -37,9 +37,13 @@ Meridian reads and parses notes locally through Obsidian’s vault APIs and does
 
 ## Development
 
-The complete reviewable TypeScript source is in `src/`. The root also carries the
-release bundle for the current public version: `main.js`, `manifest.json`, and
-`styles.css`. Build and check commands are maintained in the source repository.
+```bash
+npm install
+npm run check
+npm run build
+```
+
+The uploadable bundle is in `publish/` and contains `main.js`, `manifest.json`, `styles.css`, source, documentation, and the MIT license. Root build configuration stays outside the publish bundle.
 
 ## License
 
