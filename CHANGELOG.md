@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.4.6 — 2026-09-20
+
+- Synchronized the Meridian source and publish version surfaces and prepared
+  the next source-inclusive TutivSoft release.
+
 ## 3.4.4 — 2026-09-11
 
 - Release: carried the live Meridian billing catalog into the 3.4.4 source and publish artifacts with the verified $1/100-use and $10/1,000-use prices.
