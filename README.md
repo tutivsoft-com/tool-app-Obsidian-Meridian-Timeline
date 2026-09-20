@@ -1,6 +1,6 @@
 # Meridian Timeline
 
-Version: `3.4.10`
+Version: `3.4.11`
 
 
 Meridian Timeline is an offline-first Obsidian plugin that turns dated notes, eras, and historical spans into a readable interactive chronology. It keeps every displayed event connected to its source note.
