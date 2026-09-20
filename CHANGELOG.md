@@ -2,7 +2,7 @@
 
 ## 3.4.7 — 2026-09-20
 
-- Prepared the next patch version across the public release metadata.
+- Prepared the next patch version across source, publish, and public metadata.
 - No runtime behavior changed in this documentation and version bump.
 
 ## 3.4.6 — 2026-09-20
@@ -11,6 +11,11 @@
   the next source-inclusive TutivSoft release.
 
 ## 3.4.4 — 2026-09-11
+
+## 3.4.10 - 2026-09-21
+
+- Incremented the release version and synchronized the source-inclusive public artifact.
+- Verified build, tests, syntax, and release metadata before publication.
 
 - Release: carried the live Meridian billing catalog into the 3.4.4 source and publish artifacts with the verified $1/100-use and $10/1,000-use prices.
 
