@@ -1,7 +1,7 @@
 import { Notice, requestUrl } from "obsidian";
 import type MeridianTimelinePlugin from "./main";
 import { freeUsesRemaining, isValidBillingEmail, localDateKey, normalizedBalance } from "./billing-policy";
-import { claimAccountFreeUsage } from "./constance-account";
+import { claimAccountFreeUsage, spendAccountCredits } from "./constance-account";
 
 const BASE_URL = "https://app.tutivsoft.com";
 export const MERIDIAN_APP_ID = "meridian-timeline";
@@ -39,13 +39,13 @@ export function generateDeviceId(): string {
 
 export async function syncPurchasedUses(plugin: MeridianTimelinePlugin): Promise<void> {
   return withBillingLock(plugin, async () => {
-    if (!plugin.settings.constanceDeviceId) return;
+    if (!plugin.settings.constanceDeviceId || !plugin.settings.billingAccessToken || !plugin.settings.billingAccountLinked) return;
     try {
       const response = await requestUrl({
-        url: `${BASE_URL}/api/v1/public/browser/entitlements`, method: "POST", throw: false,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ app_id: MERIDIAN_APP_ID, external_customer_id: plugin.settings.constanceDeviceId, machine_id: plugin.settings.constanceDeviceId }),
+        url: `${BASE_URL}/api/v1/billing/entitlements/me?${new URLSearchParams({ app_id: MERIDIAN_APP_ID, installation_id: plugin.settings.constanceDeviceId }).toString()}`, method: "GET", throw: false,
+        headers: { Authorization: `Bearer ${plugin.settings.billingAccessToken}` },
       });
+      if (response.status === 401 || response.status === 403 || response.status === 404) { plugin.settings.billingAccessToken = ""; plugin.settings.billingAccountLinked = false; await plugin.saveSettings(); return; }
       if (response.status >= 200 && response.status < 300) {
         const balance = normalizedBalance(response.json?.data?.credits?.balance);
         if (balance !== null) {
@@ -63,14 +63,11 @@ async function spendPurchasedUseUnlocked(plugin: MeridianTimelinePlugin, stableE
     .filter((item, index, items) => items.findIndex((candidate) => candidate.eventId === item.eventId) === index);
   await plugin.saveSettings();
   try {
-    const response = await requestUrl({
-      url: `${BASE_URL}/api/v1/public/browser/credits/spend`, method: "POST", throw: false,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ app_id: MERIDIAN_APP_ID, external_customer_id: plugin.settings.constanceDeviceId, machine_id: plugin.settings.constanceDeviceId, amount: 1, event_id: stableEventId }),
-    });
-    if (response.status === 402 || response.status === 404) { plugin.settings.pendingSpendEvents = plugin.settings.pendingSpendEvents.filter((item) => item.eventId !== stableEventId); await plugin.saveSettings(); return { kind: "insufficient" }; }
-    if (response.status < 200 || response.status >= 300) return { kind: "error" };
-    const balance = normalizedBalance(response.json?.data?.credits?.balance);
+    const result = await spendAccountCredits(plugin.settings, MERIDIAN_APP_ID, plugin.settings.constanceDeviceId, stableEventId, 1);
+    if (result.kind === "auth-required") { plugin.settings.billingAccessToken = ""; plugin.settings.billingAccountLinked = false; await plugin.saveSettings(); return { kind: "error" }; }
+    if (result.kind === "insufficient") { plugin.settings.pendingSpendEvents = plugin.settings.pendingSpendEvents.filter((item) => item.eventId !== stableEventId); await plugin.saveSettings(); return { kind: "insufficient" }; }
+    if (result.kind === "error") return { kind: "error" };
+    const balance = normalizedBalance(result.balance);
     if (balance === null) return { kind: "error" };
     plugin.settings.pendingSpendEvents = plugin.settings.pendingSpendEvents.filter((item) => item.eventId !== stableEventId);
     await plugin.saveSettings();
