@@ -14,7 +14,10 @@ export const DEFAULT_SETTINGS: TimelineSettings = {
   namedViews: [],
   constanceDeviceId: "",
   billingEmail: "",
+  billingAccessToken: "",
+  billingAccountLinked: false,
   freeUsesDate: "",
   freeUsesToday: 0,
   purchasedUses: 0,
+  pendingSpendEvents: [],
 };

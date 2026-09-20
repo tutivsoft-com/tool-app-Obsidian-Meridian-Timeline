@@ -15,9 +15,12 @@ export interface TimelineSettings {
   namedViews: NamedView[];
   constanceDeviceId: string;
   billingEmail: string;
+  billingAccessToken: string;
+  billingAccountLinked: boolean;
   freeUsesDate: string;
   freeUsesToday: number;
   purchasedUses: number;
+  pendingSpendEvents: Array<{ eventId: string; amount: number }>;
 }
 
 export interface NamedView {

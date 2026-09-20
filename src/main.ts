@@ -1,9 +1,11 @@
 import { ItemView, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile, WorkspaceLeaf } from "obsidian";
-import { consumeTimelineUse, generateDeviceId, openCheckout, syncPurchasedUses } from "./billing";
+import { consumeTimelineUse, generateDeviceId, openCheckout, retryPendingSpendEvents, syncPurchasedUses } from "./billing";
+import { addBillingAccountSettings } from "./constance-account";
 import { ignoredPath, matchesFilters, type FilterState } from "./filter";
 import { parseNote, settingsHash } from "./parser";
 import { DEFAULT_SETTINGS } from "./settings";
 import type { CachedNote, GroupBy, NamedView, TimelineEvent, TimelineSettings } from "./types";
+import { PluginSupport } from "./plugin-support";
 
 export const VIEW_TYPE_MERIDIAN = "meridian-timeline-view";
 type TimelineScanResult = { events: TimelineEvent[]; review: CachedNote["review"] };
@@ -12,6 +14,7 @@ const emptyFilters = (): FilterState => ({ search: "", folder: "", tag: "", kind
 
 export default class MeridianTimelinePlugin extends Plugin {
   declare settings: TimelineSettings;
+  support!: PluginSupport;
   private view: MeridianTimelineView | null = null;
   private scanController: AbortController | null = null;
   private scanInFlight: Promise<TimelineScanResult> | null = null;
@@ -19,6 +22,8 @@ export default class MeridianTimelinePlugin extends Plugin {
   private billingPollTimer: number | null = null;
 
   async onload(): Promise<void> {
+    this.support = new PluginSupport(this, { name: "Meridian Timeline", summary: "Build an interactive chronology from dates already stored in your notes.", quickStart: ["Open Meridian Timeline.", "Let the default date fields scan the vault.", "Filter or save a named view."], commands: ["Open timeline", "Refresh timeline", "Copy debug log"], troubleshooting: ["Use Copy debug log before reporting a problem.", "Check date formats and ignored paths when events are missing."] });
+    this.support.start();
     const saved = await this.loadData() as Partial<TimelineSettings> | null;
     this.settings = { ...DEFAULT_SETTINGS, ...saved, eraLabels: { ...DEFAULT_SETTINGS.eraLabels, ...(saved?.eraLabels ?? {}) }, cache: saved?.cache ?? {}, namedViews: saved?.namedViews ?? [] };
     if (!this.settings.constanceDeviceId) { this.settings.constanceDeviceId = generateDeviceId(); await this.saveSettings(); }
@@ -29,7 +34,7 @@ export default class MeridianTimelinePlugin extends Plugin {
     this.addCommand({ id: "fit-all-events", name: "Meridian: Fit all timeline events", callback: () => this.view?.fitAll() });
     this.addCommand({ id: "cancel-scan", name: "Meridian: Cancel timeline scan", callback: () => this.cancelScan() });
     this.addCommand({ id: "save-named-view", name: "Meridian: Save current timeline view", callback: () => this.view?.saveNamedView() });
-    void syncPurchasedUses(this);
+    void syncPurchasedUses(this).then(() => retryPendingSpendEvents(this));
     this.addSettingTab(new MeridianSettingTab(this.app, this));
     this.registerEvent(this.app.vault.on("modify", (file) => { if (file instanceof TFile && file.extension.toLowerCase() === "md") this.invalidateAndRefresh(file.path); }));
     this.registerEvent(this.app.vault.on("delete", (file) => this.invalidateAndRefresh(file.path)));
@@ -182,7 +187,7 @@ export class MeridianSettingTab extends PluginSettingTab {
     new Setting(containerEl).setName("Ignored note patterns").setDesc("Optional regular expressions matched against vault paths.").addTextArea((text) => text.setValue(this.plugin.settings.ignoredPatterns.join("\n")).onChange(async (value) => { this.plugin.settings.ignoredPatterns = value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean); await this.plugin.saveSettings(); }));
     new Setting(containerEl).setName("Maximum events").setDesc("Protect responsiveness in very large vaults; the review list still reports all scanned notes.").addText((text) => text.setValue(String(this.plugin.settings.maxEvents)).onChange(async (value) => { const max = Math.max(100, Math.min(50000, Number(value) || 5000)); this.plugin.settings.maxEvents = max; await this.plugin.saveSettings(); }));
     new Setting(containerEl).setName("Billing").setHeading(); containerEl.createEl("p", { text: `Free installs include 3 timeline uses per local calendar day. After that, Meridian uses Constance credits: $1 buys 100 uses and $10 buys 1,000 uses. Remaining purchased uses: ${this.plugin.settings.purchasedUses.toLocaleString()}.` });
-    new Setting(containerEl).setName("Billing email").setDesc("Used only for the Constance checkout receipt.").addText((text) => text.setPlaceholder("you@example.com").setValue(this.plugin.settings.billingEmail).onChange(async (value) => { this.plugin.settings.billingEmail = value.trim(); await this.plugin.saveSettings(); }));
+    addBillingAccountSettings(containerEl, { state: this.plugin.settings, appId: "meridian-timeline", installationId: this.plugin.settings.constanceDeviceId, appVersion: this.plugin.manifest.version, persist: () => this.plugin.saveSettings(), syncBalance: () => syncPurchasedUses(this.plugin), refresh: () => this.display() });
     new Setting(containerEl).setName("Buy uses").setDesc("Checkout is provided by TutivSoft Constance; credits are tied to this installation.").addButton((button) => button.setButtonText("Buy $1 · 100 uses").onClick(() => openCheckout(this.plugin, "usd_001"))).addButton((button) => button.setButtonText("Buy $10 · 1,000 uses").setCta().onClick(() => openCheckout(this.plugin, "usd_010")));
     new Setting(containerEl).setName("Refresh purchased balance").addButton((button) => button.setButtonText("Refresh").onClick(async () => { button.setDisabled(true); await syncPurchasedUses(this.plugin); button.setDisabled(false); this.display(); }));
     new Setting(containerEl).setName("Privacy and threat model").setHeading(); containerEl.createEl("p", { text: "Meridian reads only Markdown files in the current vault through Obsidian’s local APIs and never sends note content. It does contact TutivSoft Constance only to sync and spend anonymous per-install usage credits and to open checkout when you explicitly buy uses. Source notes are read-only. Parsed event data is cached in Obsidian plugin data; the cache may include note paths, titles, headings, tags, and timestamps, so protect the vault profile accordingly." });
