@@ -5,7 +5,7 @@ Target Constance app entry:
 - App ID: `meridian-timeline`
 - Environment: `live`
 - Active: `Yes`
-- Unit: `uses`
+- Unit: `timeline_operations` (displayed as “uses” in the plugin)
 - Browser credit spend: `Yes`
 - Free allowance: 3 successful timeline operations per local calendar day, tracked locally per installation
 
@@ -16,8 +16,13 @@ Live one-time Paddle products:
 | $1 | 100 | `pri_01m28hmpn9ze05g1fg490xp9f8` |
 | $10 | 1,000 | `pri_01m28hmqn785817mzy2tfa89kz` |
 
-The plugin uses Constance’s unsigned public browser-relay endpoints for
-entitlement lookup, credit spend, and checkout. Successful operations are
+The plugin uses Constance’s unsigned public browser-relay endpoints
+`POST /api/v1/public/browser/entitlements` and
+`POST /api/v1/public/browser/credits/spend` for entitlement lookup and credit
+spend. Checkout uses the Contract v9 `/buy` fallback because this backend-less
+plugin cannot hold a shared secret for `POST /api/v1/transactions`; the plugin
+polls entitlements after opening checkout because `/buy` has no child-app return
+URL. Successful operations are
 metered only after a scan completes; failed/cancelled scans and read-only
 configuration do not consume usage. Duplicate in-flight scans are coalesced.
 Do not add Paddle API keys or private credentials to this repository. The IDs

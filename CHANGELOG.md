@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.4.12 - 2026-09-22
+
+- Reconciled the backend-less Constance browser-relay integration with Contract v9.
+
 ## 3.4.11 - 2026-09-21
 
 - Incremented release metadata without rebuilding the plugin.

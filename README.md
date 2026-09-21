@@ -1,6 +1,6 @@
 # Meridian Timeline
 
-Version: `3.4.11`
+Version: `3.4.12`
 
 
 Meridian Timeline is an offline-first Obsidian plugin that turns dated notes, eras, and historical spans into a readable interactive chronology. It keeps every displayed event connected to its source note.
@@ -17,7 +17,10 @@ Meridian Timeline is an offline-first Obsidian plugin that turns dated notes, er
 ## Billing and usage
 
 Meridian uses the TutivSoft Constance unsigned browser-relay credit system for
-metered timeline scans. Every installation receives 3 free successful timeline
+metered timeline scans. It reads balances through
+`POST /api/v1/public/browser/entitlements` and spends through
+`POST /api/v1/public/browser/credits/spend`, using the installation identifier
+as both `external_customer_id` and `machine_id`. Every installation receives 3 free successful timeline
 operations per local calendar day. After the daily allowance is used, one
 Constance credit is spent per successful operation. Failed and cancelled scans
 do not consume usage. Duplicate opens or refreshes while a scan is running are
@@ -28,9 +31,13 @@ and checkout use only the anonymous per-install device identifier; no note
 content is sent to Constance. Settings, the read-only quick preview, filters,
 zoom, and saved-view configuration never consume usage.
 
-The Constance catalog entry and Paddle price IDs are provisioned for Meridian's
-live catalog. The source keeps a defensive placeholder guard so future catalog
-changes cannot accidentally open checkout with an unprovisioned price.
+The backend-less plugin does not hold a shared secret, so it does not use signed
+headers, server callbacks, or the hosted transaction API. Checkout opens the
+Contract v9 `/buy` fallback with the Meridian `app_id`, email, installation ID,
+and one-time `price_id`, then polls the public entitlement endpoint because the
+fallback has no child-app return URL. The source keeps a defensive placeholder
+guard so future catalog changes cannot accidentally open checkout with an
+unprovisioned price; these packs have no recurring billing interval.
 
 Open **Meridian: Open timeline** from the command palette. Configure properties, ignored folders, content patterns, and era labels in **Settings → Meridian Timeline**.
 
