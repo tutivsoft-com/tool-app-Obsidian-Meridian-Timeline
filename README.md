@@ -1,9 +1,9 @@
 # Meridian Timeline
 
-Version: `3.4.14`
+Version: `3.4.15`
 
 
-Meridian Timeline is an offline-first Obsidian plugin that turns dated notes, eras, and historical spans into a readable interactive chronology. It keeps every displayed event connected to its source note.
+Meridian Timeline is a local-first Obsidian plugin that turns dated notes, eras, and historical spans into a readable interactive chronology. It keeps every displayed event connected to its source note.
 
 ## MVP features
 
@@ -45,7 +45,7 @@ Open **Meridian Timeline: Open timeline** from the command palette. Configure pr
 
 ## Privacy and threat model
 
-Meridian reads and parses notes locally through Obsidian’s vault APIs and does not use AI. The only network activity is the optional Constance entitlement sync, credit spend, and checkout flow described above; note content is never transmitted. Source notes are read-only. Parsed event data is cached in Obsidian plugin data and can include paths, titles, headings, tags, and timestamps; protect the local Obsidian profile accordingly. Ignored folders and path patterns provide an additional boundary for sensitive notes. A malformed note is isolated and reported in Review rather than stopping the scan.
+Meridian reads and parses notes locally through Obsidian’s vault APIs and does not use AI. Network activity is limited to the Constance entitlement sync, credit spend, and checkout flow described above; note content is never transmitted. Source notes are read-only. Parsed event data is cached in Obsidian plugin data and can include paths, titles, headings, tags, and timestamps; protect the local Obsidian profile accordingly. Ignored folders and path patterns provide an additional boundary for sensitive notes. A malformed note is isolated and reported in Review rather than stopping the scan.
 
 ## Development
 
@@ -55,7 +55,16 @@ npm run check
 npm run build
 ```
 
-The uploadable bundle is in `publish/` and contains `main.js`, `manifest.json`, `styles.css`, source, documentation, and the MIT license. Root build configuration stays outside the publish bundle.
+The `publish/` folder contains the generated `main.js`, `manifest.json`, `styles.css`, version metadata, and release documentation. TypeScript source stays under `src/` and is mirrored at the public repository root for review. Root build configuration stays outside the release repository.
+
+## Product documentation
+
+- [Features](FEATURES.md)
+- [Product requirements](REQUIREMENTS.md)
+- [Software architecture](SOFTWARE_ARCHITECTURE.md)
+- [Marketing brief](MARKETING.md)
+- [User guide](docs/USER_GUIDE.md)
+- [Privacy](docs/PRIVACY.md) and [threat model](docs/THREAT_MODEL.md)
 
 ## License
 

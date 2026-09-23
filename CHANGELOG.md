@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.4.15 - 2026-09-24
+
+- Added current features, user guide, privacy, threat model, architecture, marketing, and requirements documentation.
+- No runtime behavior changed.
+
 ## 3.4.14 - 2026-09-23
 
 - Simplified Obsidian command palette labels by removing repeated plugin-name prefixes.
@@ -17,28 +22,27 @@
 
 - Incremented release metadata without rebuilding the plugin.
 
-## 3.4.7 — 2026-09-20
-
-- Prepared the next patch version across source, publish, and public metadata.
-- No runtime behavior changed in this documentation and version bump.
-
-## 3.4.6 — 2026-09-20
-
-- Synchronized the Meridian source and publish version surfaces and prepared
-  the next source-inclusive TutivSoft release.
-
-## 3.4.4 — 2026-09-11
-
 ## 3.4.10 - 2026-09-21
 
 - Incremented the release version and synchronized the source-inclusive public artifact.
 - Verified build, tests, syntax, and release metadata before publication.
 
-- Release: carried the live Meridian billing catalog into the 3.4.4 source and publish artifacts with the verified $1/100-use and $10/1,000-use prices.
+## 3.4.7 - 2026-09-20
 
-## 3.4.3 — 2026-09-11
+- Prepared the next patch version across source, publish, and public metadata.
+- No runtime behavior changed in this documentation and version bump.
 
-- Billing/live catalog: configured Meridian’s provisioned live prices for $1/100 uses (`pri_01m28hmpn9ze05g1fg490xp9f8`) and $10/1,000 uses (`pri_01m28hmqn785817mzy2tfa89kz`).
+## 3.4.6 - 2026-09-20
+
+- Synchronized the Meridian source and publish version surfaces and prepared the next source-inclusive TutivSoft release.
+
+## 3.4.4 - 2026-09-11
+
+- Carried the live Meridian billing catalog into the source and publish artifacts.
+
+## 3.4.3 - 2026-09-11
+
+- Configured Meridian's provisioned live prices for the $1/100-use and $10/1,000-use packs.
 
 ## 3.4.2
 
