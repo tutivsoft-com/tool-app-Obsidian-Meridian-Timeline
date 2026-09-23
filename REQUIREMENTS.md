@@ -1,6 +1,6 @@
 # Meridian Timeline — Product Requirements
 
-Status: runtime scope implemented through 3.4.14; 3.4.15 is documentation-only.
+Status: runtime scope implemented through 3.4.14; 3.4.15-3.4.16 are documentation and release-infrastructure only.
 
 ## Product promise
 

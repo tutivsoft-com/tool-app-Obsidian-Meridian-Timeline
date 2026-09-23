@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.4.16 - 2026-09-24
+
+- Corrected the public release-attestation workflow to attest the published assets without source-only npm metadata.
+- No runtime behavior changed.
+
+
+
 ## 3.4.15 - 2026-09-24
 
 - Added current features, user guide, privacy, threat model, architecture, marketing, and requirements documentation.
