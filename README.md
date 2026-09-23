@@ -1,6 +1,6 @@
 # Meridian Timeline
 
-Version: `3.4.13`
+Version: `3.4.14`
 
 
 Meridian Timeline is an offline-first Obsidian plugin that turns dated notes, eras, and historical spans into a readable interactive chronology. It keeps every displayed event connected to its source note.
@@ -41,7 +41,7 @@ fallback has no child-app return URL. The source keeps a defensive placeholder
 guard so future catalog changes cannot accidentally open checkout with an
 unprovisioned price; these packs have no recurring billing interval.
 
-Open **Meridian: Open timeline** from the command palette. Configure properties, ignored folders, content patterns, and era labels in **Settings → Meridian Timeline**.
+Open **Meridian Timeline: Open timeline** from the command palette. Configure properties, ignored folders, content patterns, and era labels in **Settings → Meridian Timeline**.
 
 ## Privacy and threat model
 

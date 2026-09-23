@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.4.14 - 2026-09-23
+
+- Simplified Obsidian command palette labels by removing repeated plugin-name prefixes.
+
 ## 3.4.13 - 2026-09-23
 
 - Avoid a second billed scan when revealing an open timeline and stop automatic scans after note edits. Refresh explicitly to update changed notes.

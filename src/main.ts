@@ -28,11 +28,11 @@ export default class MeridianTimelinePlugin extends Plugin {
     if (!this.settings.constanceDeviceId) { this.settings.constanceDeviceId = generateDeviceId(); await this.saveSettings(); }
     this.registerView(VIEW_TYPE_MERIDIAN, (leaf) => { this.view = new MeridianTimelineView(leaf, this); return this.view; });
     this.addRibbonIcon("clock-3", "Open Meridian Timeline", () => void this.activateView());
-    this.addCommand({ id: "open-timeline", name: "Meridian: Open timeline", callback: () => void this.activateView() });
-    this.addCommand({ id: "refresh-timeline", name: "Meridian: Refresh timeline", callback: () => void this.refresh() });
-    this.addCommand({ id: "fit-all-events", name: "Meridian: Fit all timeline events", callback: () => this.view?.fitAll() });
-    this.addCommand({ id: "cancel-scan", name: "Meridian: Cancel timeline scan", callback: () => this.cancelScan() });
-    this.addCommand({ id: "save-named-view", name: "Meridian: Save current timeline view", callback: () => this.view?.saveNamedView() });
+    this.addCommand({ id: "open-timeline", name: "Open timeline", callback: () => void this.activateView() });
+    this.addCommand({ id: "refresh-timeline", name: "Refresh timeline", callback: () => void this.refresh() });
+    this.addCommand({ id: "fit-all-events", name: "Fit all timeline events", callback: () => this.view?.fitAll() });
+    this.addCommand({ id: "cancel-scan", name: "Cancel timeline scan", callback: () => this.cancelScan() });
+    this.addCommand({ id: "save-named-view", name: "Save current timeline view", callback: () => this.view?.saveNamedView() });
     void retryPendingSpendEvents(this).then(() => syncPurchasedUses(this));
     this.addSettingTab(new MeridianSettingTab(this.app, this));
     this.registerEvent(this.app.vault.on("modify", (file) => { if (file instanceof TFile && file.extension.toLowerCase() === "md") this.invalidateAndRefresh(file.path); }));

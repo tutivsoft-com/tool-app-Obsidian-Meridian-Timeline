@@ -1,7 +1,7 @@
 {
   "id": "meridian-timeline",
   "name": "Meridian Timeline",
-  "version": "3.4.13",
+  "version": "3.4.14",
   "minAppVersion": "1.5.0",
   "description": "Explore dated notes and historical spans on an interactive, local-only timeline.",
   "author": "Rahul",
