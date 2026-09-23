@@ -18,7 +18,6 @@ export default class MeridianTimelinePlugin extends Plugin {
   private view: MeridianTimelineView | null = null;
   private scanController: AbortController | null = null;
   private scanInFlight: Promise<TimelineScanResult> | null = null;
-  private refreshTimer: number | null = null;
   private billingPollTimer: number | null = null;
 
   async onload(): Promise<void> {
@@ -34,7 +33,7 @@ export default class MeridianTimelinePlugin extends Plugin {
     this.addCommand({ id: "fit-all-events", name: "Meridian: Fit all timeline events", callback: () => this.view?.fitAll() });
     this.addCommand({ id: "cancel-scan", name: "Meridian: Cancel timeline scan", callback: () => this.cancelScan() });
     this.addCommand({ id: "save-named-view", name: "Meridian: Save current timeline view", callback: () => this.view?.saveNamedView() });
-    void syncPurchasedUses(this).then(() => retryPendingSpendEvents(this));
+    void retryPendingSpendEvents(this).then(() => syncPurchasedUses(this));
     this.addSettingTab(new MeridianSettingTab(this.app, this));
     this.registerEvent(this.app.vault.on("modify", (file) => { if (file instanceof TFile && file.extension.toLowerCase() === "md") this.invalidateAndRefresh(file.path); }));
     this.registerEvent(this.app.vault.on("delete", (file) => this.invalidateAndRefresh(file.path)));
@@ -43,7 +42,6 @@ export default class MeridianTimelinePlugin extends Plugin {
 
   onunload(): void {
     this.cancelScan();
-    if (this.refreshTimer !== null) window.clearTimeout(this.refreshTimer);
     if (this.billingPollTimer !== null) window.clearInterval(this.billingPollTimer);
   }
   async saveSettings(): Promise<void> { await this.saveData(this.settings); }
@@ -67,16 +65,20 @@ export default class MeridianTimelinePlugin extends Plugin {
     await leaf.setViewState({ type: VIEW_TYPE_MERIDIAN, active: true });
     this.app.workspace.revealLeaf(leaf);
     this.view = leaf.view instanceof MeridianTimelineView ? leaf.view : this.view;
-    await this.view?.loadTimeline();
+    // The view's onOpen performs the initial scan. Reopening an existing leaf
+    // should reveal its current result rather than spend another use.
   }
   async refresh(): Promise<void> { await this.view?.loadTimeline(true); }
   cancelScan(): void {
     const controller = this.scanController;
     controller?.abort();
     this.scanController = null;
-    if (controller) this.view?.showScanMessage("Scan cancelled. No usage was consumed.");
+    if (controller) this.view?.showScanMessage("Cancelling scan…");
   }
-  private invalidateAndRefresh(path: string): void { delete this.settings.cache[path]; if (this.refreshTimer !== null) window.clearTimeout(this.refreshTimer); this.refreshTimer = window.setTimeout(() => { void this.refresh(); }, 350); }
+  private invalidateAndRefresh(path: string): void {
+    delete this.settings.cache[path];
+    this.view?.showScanMessage("Notes changed. Select Refresh to update the timeline (uses one scan).");
+  }
   async scan(onProgress: (done: number, total: number) => void): Promise<TimelineScanResult> {
     if (this.scanInFlight) return this.scanInFlight;
     const operation = this.runScan(onProgress);
@@ -186,7 +188,7 @@ export class MeridianSettingTab extends PluginSettingTab {
     new Setting(containerEl).setName("Ignored folders").setDesc("Comma-separated vault-relative folders.").addText((text) => text.setValue(this.plugin.settings.ignoredFolders.join(", ")).onChange(async (value) => { this.plugin.settings.ignoredFolders = value.split(",").map((item) => item.trim()).filter(Boolean); await this.plugin.saveSettings(); }));
     new Setting(containerEl).setName("Ignored note patterns").setDesc("Optional regular expressions matched against vault paths.").addTextArea((text) => text.setValue(this.plugin.settings.ignoredPatterns.join("\n")).onChange(async (value) => { this.plugin.settings.ignoredPatterns = value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean); await this.plugin.saveSettings(); }));
     new Setting(containerEl).setName("Maximum events").setDesc("Protect responsiveness in very large vaults; the review list still reports all scanned notes.").addText((text) => text.setValue(String(this.plugin.settings.maxEvents)).onChange(async (value) => { const max = Math.max(100, Math.min(50000, Number(value) || 5000)); this.plugin.settings.maxEvents = max; await this.plugin.saveSettings(); }));
-    new Setting(containerEl).setName("Billing").setHeading(); containerEl.createEl("p", { text: `Free installs include 3 timeline uses per local calendar day. After that, Meridian uses Constance credits: $1 buys 100 uses and $10 buys 1,000 uses. Remaining purchased uses: ${this.plugin.settings.purchasedUses.toLocaleString()}.` });
+    new Setting(containerEl).setName("Billing").setHeading(); containerEl.createEl("p", { text: `You get 3 timeline scans per local calendar day. After that, Meridian uses Constance credits: $1 buys 100 scans and $10 buys 1,000 scans. Remaining purchased scans: ${this.plugin.settings.purchasedUses.toLocaleString()}. Opening a timeline view or selecting Refresh runs a scan; revealing an open view does not.` });
     addBillingAccountSettings(containerEl, { state: this.plugin.settings, persist: () => this.plugin.saveSettings(), refresh: () => this.display() });
     new Setting(containerEl).setName("Buy uses").setDesc("Checkout is provided by TutivSoft Constance; credits are tied to this installation.").addButton((button) => button.setButtonText("Buy $1 · 100 uses").onClick(() => openCheckout(this.plugin, "usd_001"))).addButton((button) => button.setButtonText("Buy $10 · 1,000 uses").setCta().onClick(() => openCheckout(this.plugin, "usd_010")));
     new Setting(containerEl).setName("Refresh purchased balance").addButton((button) => button.setButtonText("Refresh").onClick(async () => { button.setDisabled(true); await syncPurchasedUses(this.plugin); button.setDisabled(false); this.display(); }));

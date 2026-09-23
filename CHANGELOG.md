@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.4.13 - 2026-09-23
+
+- Avoid a second billed scan when revealing an open timeline and stop automatic scans after note edits. Refresh explicitly to update changed notes.
+- Retry unsettled credit spends before balance sync and clarify scan usage in settings.
+
 ## 3.4.12 - 2026-09-22
 
 - Reconciled the backend-less Constance browser-relay integration with Contract v9.
