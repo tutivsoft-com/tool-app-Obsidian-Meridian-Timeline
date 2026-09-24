@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.4.20 - 2026-09-25
+
+- Synchronized the release version across release metadata and current product documentation; plugin behavior is unchanged.
+
 ## 3.4.16 - 2026-09-24
 
 - Corrected the public release-attestation workflow to attest the published assets without source-only npm metadata.
