@@ -55,7 +55,7 @@ npm run check
 npm run build
 ```
 
-The `publish/` folder contains the generated `main.js`, `manifest.json`, `styles.css`, version metadata, and release documentation. TypeScript source stays under `src/` and is mirrored at the public repository root for review. Root build configuration stays outside the release repository.
+The private source repository holds Meridian TypeScript implementation and build configuration. This checkout still includes source-inclusive material from an earlier snapshot; the next curated release should contain approved public files and assets, including `main.js`, `manifest.json`, and `styles.css`, without a mirrored source tree or internal release documentation.
 
 ## Product documentation
 

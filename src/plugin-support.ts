@@ -33,7 +33,7 @@ class DocumentationModal extends Modal {
       for (const item of items) list.createEl("li", { text: item });
     };
     addSection("Quick start", this.docs.quickStart);
-    addSection("Useful commands", this.docs.commands);
+    addSection("Useful commands", Array.from(new Set([...this.docs.commands, "Copy full debug log"])));
     addSection("Troubleshooting", this.docs.troubleshooting);
   }
 
@@ -66,7 +66,7 @@ export class PluginSupport {
     this.plugin.addCommand({
       id: "copy-debug-log",
       name: "Copy debug log",
-      callback: () => { void this.copyDiagnostics(); },
+      callback: () => this.copyDiagnostics(),
     });
     this.plugin.addCommand({
       id: "open-plugin-settings",
