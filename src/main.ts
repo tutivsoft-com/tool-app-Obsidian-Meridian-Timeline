@@ -28,8 +28,8 @@ export default class MeridianTimelinePlugin extends Plugin {
     if (!this.settings.constanceDeviceId) { this.settings.constanceDeviceId = generateDeviceId(); await this.saveSettings(); }
     this.registerView(VIEW_TYPE_MERIDIAN, (leaf) => { this.view = new MeridianTimelineView(leaf, this); return this.view; });
     this.addRibbonIcon("clock-3", "Open Meridian Timeline", () => void this.activateView());
-    this.addCommand({ id: "open-timeline", name: "Open timeline", callback: () => void this.activateView() });
-    this.addCommand({ id: "refresh-timeline", name: "Refresh timeline", callback: () => void this.refresh() });
+    this.addCommand({ id: "open-timeline", name: "Open timeline", callback: () => this.activateView() });
+    this.addCommand({ id: "refresh-timeline", name: "Refresh timeline", callback: () => this.refresh() });
     this.addCommand({ id: "fit-all-events", name: "Fit all timeline events", callback: () => this.view?.fitAll() });
     this.addCommand({ id: "cancel-scan", name: "Cancel timeline scan", callback: () => this.cancelScan() });
     this.addCommand({ id: "save-named-view", name: "Save current timeline view", callback: () => this.view?.saveNamedView() });
@@ -179,7 +179,8 @@ function yearLabel(timestamp: number): string { const year = new Date(timestamp)
 export class MeridianSettingTab extends PluginSettingTab {
   constructor(app: ConstructorParameters<typeof PluginSettingTab>[0], private readonly plugin: MeridianTimelinePlugin) { super(app, plugin); }
   display(): void {
-    const { containerEl } = this; containerEl.empty(); containerEl.createEl("h2", { text: "Meridian Timeline" }); containerEl.createEl("p", { text: "Meridian reads notes locally and never changes source files. Structured frontmatter is preferred; content scanning is a fallback." });
+    const { containerEl } = this; containerEl.empty();
+    this.plugin.support.addDiagnosticsSetting(containerEl); containerEl.createEl("h2", { text: "Meridian Timeline" }); containerEl.createEl("p", { text: "Meridian reads notes locally and never changes source files. Structured frontmatter is preferred; content scanning is a fallback." });
     const preview = containerEl.createDiv("meridian-settings-preview"); preview.createEl("h3", { text: "Quick preview" }); preview.createEl("p", { text: "Exact dates appear as solid bars; approximate dates use a dashed edge; uncertain/conflicting dates carry a question badge." }); const sample = preview.createDiv("meridian-preview-bars"); sample.createDiv("meridian-preview-bar meridian-preview-exact").setText("Exact"); sample.createDiv("meridian-preview-bar meridian-preview-approx").setText("Approximate"); sample.createDiv("meridian-preview-bar meridian-preview-uncertain").setText("Uncertain?");
     new Setting(containerEl).setName("First-run setup").setDesc("Start with date, start, end, created, and modified. Add a small preview to your workflow by opening the timeline.").addButton((button) => button.setButtonText(this.plugin.settings.onboardingComplete ? "Setup complete" : "Mark setup complete").setCta().onClick(async () => { this.plugin.settings.onboardingComplete = true; await this.plugin.saveSettings(); this.display(); }));
     new Setting(containerEl).setName("Date properties").setDesc("Comma-separated frontmatter properties, in priority order.").addText((text) => text.setValue(this.plugin.settings.dateProperties.join(", ")).onChange(async (value) => { this.plugin.settings.dateProperties = value.split(",").map((item) => item.trim()).filter(Boolean); await this.plugin.saveSettings(); }));
