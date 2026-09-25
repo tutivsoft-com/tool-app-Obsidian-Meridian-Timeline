@@ -30,3 +30,9 @@ Meridian is a TypeScript Obsidian plugin. Its entry point coordinates the timeli
 ## Build and release
 
 The build type-checks the root source and bundles src/main.ts into publish/main.js. The publish directory carries the generated bundle, matching manifest and stylesheet, compatibility map, and release documentation. The root src tree is mirrored into the public repository for source review. The public repository attaches main.js, manifest.json, and styles.css to the exact manifest-version GitHub release.
+
+<!-- one-click-workflow:start -->
+## Workflow defaults (v3.4.19)
+
+Meridian opens the read-only timeline scan directly. It does not write to notes, so there is no edit approval step.
+<!-- one-click-workflow:end -->

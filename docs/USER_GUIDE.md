@@ -36,3 +36,9 @@ Three successful timeline operations are free per local calendar day. After the 
 - Check ignored folders and patterns if an expected note is missing.
 - Use Refresh after changing a note.
 - If usage verification is unavailable after the free allowance, reconnect and try again.
+
+<!-- one-click-workflow:start -->
+## Workflow defaults (v3.4.19)
+
+Meridian opens the read-only timeline scan directly. It does not write to notes, so there is no edit approval step.
+<!-- one-click-workflow:end -->

@@ -1,8 +1,18 @@
 # Changelog
 
-## 3.4.20 - 2026-09-25
+## 3.4.22 (2026-09-25)
+
+- Synchronized version metadata and the packaged runtime across the source and public release repositories.
+
+
+## 3.4.21 (2026-09-25)
 
 - Synchronized the release version across release metadata and current product documentation; plugin behavior is unchanged.
+
+## 3.4.19 (2026-09-24)
+
+- Meridian opens the read-only timeline scan directly. It does not write to notes, so there is no edit approval step.
+
 
 ## 3.4.16 - 2026-09-24
 

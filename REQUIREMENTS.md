@@ -36,3 +36,9 @@ The first three free daily operations are tracked locally. Purchased-use verific
 ## Future considerations
 
 Potential future work includes richer export formats, recurring events, additional grouping modes, and opt-in date suggestions. Any feature that sends selected note text off-device would require explicit user control and a clear privacy disclosure.
+
+<!-- one-click-workflow:start -->
+## Workflow defaults (v3.4.19)
+
+Meridian opens the read-only timeline scan directly. It does not write to notes, so there is no edit approval step.
+<!-- one-click-workflow:end -->

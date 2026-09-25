@@ -10,3 +10,9 @@
 8. **Refresh without restarting Obsidian** — Re-parse changed notes when you choose Refresh.
 9. **Save useful views** — Keep named filter and display configurations for recurring work.
 10. **Keep note contents local** — Parsing and display run through Obsidian APIs; billing uses separate installation and account metadata.
+
+<!-- one-click-workflow:start -->
+## Workflow defaults (v3.4.19)
+
+Meridian opens the read-only timeline scan directly. It does not write to notes, so there is no edit approval step.
+<!-- one-click-workflow:end -->

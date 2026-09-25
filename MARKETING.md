@@ -34,3 +34,9 @@ Dates that are approximate, uncertain, conflicting, missing, or malformed stay v
 ## Claim boundaries
 
 Do not call Meridian a full calendar, task manager, AI date extractor, or cloud timeline. Avoid promising exact parsing for every date style or a fixed performance level. Distinguish local note processing from network requests used for entitlement, purchased-use, and checkout metadata.
+
+<!-- one-click-workflow:start -->
+## Workflow defaults (v3.4.19)
+
+Meridian opens the read-only timeline scan directly. It does not write to notes, so there is no edit approval step.
+<!-- one-click-workflow:end -->

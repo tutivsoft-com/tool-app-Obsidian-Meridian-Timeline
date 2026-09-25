@@ -29,3 +29,9 @@ Date parsing, filtering, and rendering run locally through Obsidian APIs. Meridi
 - Ambiguous or malformed values are surfaced for review rather than silently converted to exact dates.
 - Meridian is not a calendar, task manager, or automatic note editor.
 - AI extraction is not included.
+
+<!-- one-click-workflow:start -->
+## Workflow defaults (v3.4.19)
+
+Meridian opens the read-only timeline scan directly. It does not write to notes, so there is no edit approval step.
+<!-- one-click-workflow:end -->
