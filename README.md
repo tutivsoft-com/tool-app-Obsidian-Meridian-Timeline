@@ -1,6 +1,6 @@
 # Meridian Timeline
 
-Version: `3.4.22`
+Version: `3.4.30`
 
 
 Meridian Timeline is a local-first Obsidian plugin that turns dated notes, eras, and historical spans into a readable interactive chronology. It keeps every displayed event connected to its source note.
@@ -71,7 +71,7 @@ The private source repository holds Meridian TypeScript implementation and build
 MIT. See [LICENSE](LICENSE).
 
 <!-- one-click-workflow:start -->
-## Workflow defaults (v3.4.19)
+## Workflow defaults (v3.4.25)
 
 Meridian opens the read-only timeline scan directly. It does not write to notes, so there is no edit approval step.
 <!-- one-click-workflow:end -->
