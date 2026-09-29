@@ -75,3 +75,9 @@ MIT. See [LICENSE](LICENSE).
 
 Meridian opens the read-only timeline scan directly. It does not write to notes, so there is no edit approval step.
 <!-- one-click-workflow:end -->
+
+## Billing model review — 2026-09-29
+
+Meridian uses an installation identifier for credit balances. Checkout email is for checkout and receipts; it is not an account login. Re-entering the email on a new installation does not implement account-based balance restore. Preserve the original installation data when moving a vault.
+
+The existing purchase model is retained. No new account sign-in was introduced.
