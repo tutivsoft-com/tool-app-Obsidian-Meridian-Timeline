@@ -1,6 +1,6 @@
 # Meridian Timeline
 
-Version: `3.4.30`
+Public candidate manifest: `3.4.32` (latest completed Community release: `3.4.30`; private source: `3.4.33`)
 
 
 Meridian Timeline is a local-first Obsidian plugin that turns dated notes, eras, and historical spans into a readable interactive chronology. It keeps every displayed event connected to its source note.
@@ -59,12 +59,7 @@ The private source repository holds Meridian TypeScript implementation and build
 
 ## Product documentation
 
-- [Features](FEATURES.md)
-- [Product requirements](REQUIREMENTS.md)
-- [Software architecture](SOFTWARE_ARCHITECTURE.md)
-- [Marketing brief](MARKETING.md)
-- [User guide](docs/USER_GUIDE.md)
-- [Privacy](docs/PRIVACY.md) and [threat model](docs/THREAT_MODEL.md)
+This curated public snapshot contains the README and release assets; detailed product and implementation documents remain in the private source repository.
 
 ## License
 
