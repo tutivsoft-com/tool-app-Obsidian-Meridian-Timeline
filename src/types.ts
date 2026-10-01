@@ -2,6 +2,7 @@ export type EventKind = "point" | "span" | "approximate" | "uncertain";
 export type GroupBy = "none" | "folder" | "tag" | "property";
 
 export interface TimelineSettings {
+  settingsMode: "simple" | "advanced";
   dateProperties: string[];
   contentPatterns: string[];
   eraLabels: Record<string, number>;
@@ -16,11 +17,15 @@ export interface TimelineSettings {
   constanceDeviceId: string;
   billingEmail: string;
   billingAccessToken: string;
+  billingRefreshToken: string;
+  billingAccessTokenExpiresAt: number;
+  pendingCheckoutKeys: Record<string, string>;
   billingAccountLinked: boolean;
   freeUsesDate: string;
   freeUsesToday: number;
   purchasedUses: number;
-  pendingSpendEvents: Array<{ eventId: string; amount: number }>;
+  recoveredTimelineUses?: number;
+  pendingSpendEvents: Array<{ eventId: string; amount: number; kind?: "free" | "paid" }>;
 }
 
 export interface NamedView {
