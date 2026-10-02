@@ -1,78 +1,30 @@
 # Meridian Timeline
 
-Public candidate manifest: `3.4.32` (latest completed Community release: `3.4.30`; private source: `3.4.33`)
+Version: `3.4.35`
 
+Meridian turns dated notes, eras, and historical spans into an interactive chronology while keeping each event connected to its source note.
 
-Meridian Timeline is a local-first Obsidian plugin that turns dated notes, eras, and historical spans into a readable interactive chronology. It keeps every displayed event connected to its source note.
+## Features
 
-## MVP features
+- Reads configurable date, start, end, created, and modified properties.
+- Parses exact dates, months, years, decades, approximate dates, eras, and historical spans.
+- Search, filter, group, zoom, and open source notes from the timeline.
+- Cache parsed notes locally and refresh when source files change.
 
-- Reads configurable frontmatter properties (`date`, `start`, `end`, `created`, and `modified` by default).
-- Parses ISO dates, month/day formats, years, decades, approximate dates, BC/BCE labels, and configurable era names.
-- Shows point events, spans, approximate dates, uncertain/conflicting dates, and a review list for undated or malformed notes.
-- Provides search, folder/tag/type/uncertainty filters, grouping by folder or tag, zoom, fit-all, and source navigation.
-- Caches parsed notes and invalidates only changed notes. Initial scans show progress and can be cancelled from the command palette. When notes change, select Refresh to update the timeline.
-- Saves named view configurations without modifying source notes.
+## Install
+
+Install **Meridian Timeline** from Obsidian's Community plugins browser. For manual installation, download `main.js`, `manifest.json`, and `styles.css` from the [GitHub release](https://github.com/tutivsoft-com/tool-app-Obsidian-Meridian-Timeline/releases), place them in `<vault>/.obsidian/plugins/meridian-timeline/`, and enable the plugin.
 
 ## Billing and usage
 
-Meridian uses the TutivSoft Constance unsigned browser-relay credit system for
-metered timeline scans. It reads balances through
-`POST /api/v1/public/browser/entitlements` and spends through
-`POST /api/v1/public/browser/credits/spend`, using the installation identifier
-as both `external_customer_id` and `machine_id`. Every installation receives 3 free successful timeline
-operations per local calendar day. After the daily allowance is used, one
-Constance credit is spent per successful operation. Failed and cancelled scans
-do not consume usage. Duplicate opens or refreshes while a scan is running are
-coalesced into that one operation, so they cannot double-spend. Revealing an
-already open timeline does not start another scan or spend another use. Note
-edits mark the timeline as needing a refresh, which you can start when ready.
+Meridian's included free allowance and account balance are shown in Settings. Current one-time offers provide 50, 150, 450, or 1,200 timeline operations for USD $2, $4, $8, or $14. Offer descriptions, amounts, and availability are loaded from the configured Paddle catalog; checkout uses the selected provider price. Your balance remains attached to your verified account when you reinstall or reconnect.
 
-The live one-time packs are $1 for 100 uses and $10 for 1,000 uses. Balance sync
-and checkout use only the anonymous per-install device identifier; no note
-content is sent to Constance. Settings, the read-only quick preview, filters,
-zoom, and saved-view configuration never consume usage.
+Timeline operations are authorized before a full result is revealed. Meridian sends billing metadata only; note content remains in your vault. An uncertain operation is reconciled using its original identity.
 
-The backend-less plugin does not hold a shared secret, so it does not use signed
-headers, server callbacks, or the hosted transaction API. Checkout opens the
-Contract v9 `/buy` fallback with the Meridian `app_id`, email, installation ID,
-and one-time `price_id`, then polls the public entitlement endpoint because the
-fallback has no child-app return URL. The source keeps a defensive placeholder
-guard so future catalog changes cannot accidentally open checkout with an
-unprovisioned price; these packs have no recurring billing interval.
+## Privacy
 
-Open **Meridian Timeline: Open timeline** from the command palette. Configure properties, ignored folders, content patterns, and era labels in **Settings → Meridian Timeline**.
-
-## Privacy and threat model
-
-Meridian reads and parses notes locally through Obsidian’s vault APIs and does not use AI. Network activity is limited to the Constance entitlement sync, credit spend, and checkout flow described above; note content is never transmitted. Source notes are read-only. Parsed event data is cached in Obsidian plugin data and can include paths, titles, headings, tags, and timestamps; protect the local Obsidian profile accordingly. Ignored folders and path patterns provide an additional boundary for sensitive notes. A malformed note is isolated and reported in Review rather than stopping the scan.
-
-## Development
-
-```bash
-npm install
-npm run check
-npm run build
-```
-
-The private source repository holds Meridian TypeScript implementation and build configuration. This checkout still includes source-inclusive material from an earlier snapshot; the next curated release should contain approved public files and assets, including `main.js`, `manifest.json`, and `styles.css`, without a mirrored source tree or internal release documentation.
-
-## Product documentation
-
-This curated public snapshot contains the README and release assets; detailed product and implementation documents remain in the private source repository.
+Meridian reads and parses notes locally through Obsidian's vault APIs. It does not use AI or send note content to the billing service. Parsed paths, titles, headings, tags, and timestamps may be stored in the local plugin cache.
 
 ## License
 
 MIT. See [LICENSE](LICENSE).
-
-<!-- one-click-workflow:start -->
-## Workflow defaults (v3.4.25)
-
-Meridian opens the read-only timeline scan directly. It does not write to notes, so there is no edit approval step.
-<!-- one-click-workflow:end -->
-
-## Billing model review � 2026-09-29
-
-Meridian uses an installation identifier for credit balances. Checkout email is for checkout and receipts; it is not an account login. Re-entering the email on a new installation does not implement account-based balance restore. Preserve the original installation data when moving a vault.
-
-The existing purchase model is retained. No new account sign-in was introduced.

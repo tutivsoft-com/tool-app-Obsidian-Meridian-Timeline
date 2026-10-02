@@ -1,3 +1,4 @@
+import { reserveNative, renderNativePacks, jobId } from "./native-operations";
 import { ItemView, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile, WorkspaceLeaf } from "obsidian";
 import { consumeTimelineUse, generateDeviceId, openCheckout, retryPendingSpendEvents, syncPurchasedUses } from "./billing";
 import { addBillingAccountSettings } from "./constance-account";
@@ -15,16 +16,28 @@ const emptyFilters = (): FilterState => ({ search: "", folder: "", tag: "", kind
 export default class MeridianTimelinePlugin extends Plugin {
   declare settings: TimelineSettings;
   support!: PluginSupport;
+  billingSummaryRefresh?: () => void;
   private view: MeridianTimelineView | null = null;
   private scanController: AbortController | null = null;
   private scanInFlight: Promise<TimelineScanResult> | null = null;
   private billingPollTimer: number | null = null;
+  private preservedSnapshot?: {id:string;source:string;result:TimelineScanResult;notes:number;revealed:boolean};
+  async revealSnapshot(): Promise<TimelineScanResult | null> {
+    const snapshot=this.preservedSnapshot; if(!snapshot)return null;
+    if(!snapshot.revealed) {
+      const authorization=await reserveNative({app:this.app,settings:this.settings,persistNative:()=>this.saveSettings()},"meridian-timeline",snapshot.id,snapshot.source,JSON.stringify(snapshot.result),{notes:snapshot.notes},true);
+      if(!authorization)return null; snapshot.revealed=true;
+    }
+    return snapshot.result;
+  }
+  clearUnrevealedSnapshot():void{if(!this.preservedSnapshot?.revealed)this.preservedSnapshot=undefined;}
+  snapshotRevealed(): boolean { return this.preservedSnapshot?.revealed===true; }
 
   async onload(): Promise<void> {
     this.support = new PluginSupport(this, { name: "Meridian Timeline", summary: "Build an interactive chronology from dates already stored in your notes.", quickStart: ["Open Meridian Timeline.", "Let the default date fields scan the vault.", "Filter or save a named view."], commands: ["Open timeline", "Refresh timeline", "Copy debug log"], troubleshooting: ["Use Copy debug log before reporting a problem.", "Check date formats and ignored paths when events are missing."] });
     this.support.start();
     const saved = await this.loadData() as Partial<TimelineSettings> | null;
-    this.settings = { ...DEFAULT_SETTINGS, ...saved, eraLabels: { ...DEFAULT_SETTINGS.eraLabels, ...(saved?.eraLabels ?? {}) }, cache: saved?.cache ?? {}, namedViews: saved?.namedViews ?? [] };
+    this.settings = { ...DEFAULT_SETTINGS, ...saved, settingsMode: saved?.settingsMode === "advanced" ? "advanced" : "simple", eraLabels: { ...DEFAULT_SETTINGS.eraLabels, ...(saved?.eraLabels ?? {}) }, cache: saved?.cache ?? {}, namedViews: saved?.namedViews ?? [] };
     if (!this.settings.constanceDeviceId) { this.settings.constanceDeviceId = generateDeviceId(); await this.saveSettings(); }
     this.registerView(VIEW_TYPE_MERIDIAN, (leaf) => { this.view = new MeridianTimelineView(leaf, this); return this.view; });
     this.addRibbonIcon("clock-3", "Open Meridian Timeline", () => void this.activateView());
@@ -39,6 +52,8 @@ export default class MeridianTimelinePlugin extends Plugin {
     this.registerEvent(this.app.vault.on("delete", (file) => this.invalidateAndRefresh(file.path)));
     this.registerEvent(this.app.vault.on("rename", (file, oldPath) => { delete this.settings.cache[oldPath]; this.invalidateAndRefresh(file.path); }));
   }
+
+  refreshBillingSummary(): void { this.billingSummaryRefresh?.(); }
 
   onunload(): void {
     this.cancelScan();
@@ -89,13 +104,16 @@ export default class MeridianTimelinePlugin extends Plugin {
     const controller = new AbortController(); this.scanController = controller;
     try {
       const files = this.app.vault.getMarkdownFiles().filter((file) => !ignoredPath(file.path, this.settings.ignoredFolders, this.settings.ignoredPatterns));
+      if(!this.settings.billingAccountLinked && files.length>20)throw new Error("Guest timeline preview supports up to 20 notes. Choose a smaller scope using ignored folders, then keep the preview open through sign-in.");
+      if(files.length>2000)throw new Error("Select a smaller timeline scope (maximum 2,000 notes per bounded local run).");
+      const source=JSON.stringify(files.map(f=>[f.path,f.stat.mtime,f.stat.size]));
       const hash = settingsHash(this.settings); const events: TimelineEvent[] = []; const review: CachedNote["review"] = [];
       for (let index = 0; index < files.length; index++) {
         if (controller.signal.aborted) throw new Error("Timeline scan cancelled. No usage was consumed.");
         const file = files[index]; const cached = this.settings.cache[file.path];
         let result: CachedNote;
         if (cached && cached.mtime === file.stat.mtime && cached.size === file.stat.size && cached.settingsHash === hash) result = cached;
-        else { const parsed = parseNote(file.path, await this.app.vault.cachedRead(file), this.settings.dateProperties, this.settings.contentPatterns, this.settings.eraLabels); result = { mtime: file.stat.mtime, size: file.stat.size, settingsHash: hash, events: parsed.events, review: parsed.review }; this.settings.cache[file.path] = result; }
+        else { const parsed = parseNote(file.path, await this.app.vault.cachedRead(file), this.settings.dateProperties, this.settings.contentPatterns, this.settings.eraLabels); result = { mtime: file.stat.mtime, size: file.stat.size, settingsHash: hash, events: parsed.events, review: parsed.review }; /* New results remain session-memory until useful reveal. */ }
         events.push(...result.events); review.push(...result.review); onProgress(index + 1, files.length);
       }
       if (controller.signal.aborted) throw new Error("Timeline scan cancelled. No usage was consumed.");
@@ -103,8 +121,8 @@ export default class MeridianTimelinePlugin extends Plugin {
       const result = { events: events.slice(0, this.settings.maxEvents), review };
       // Meter only after the scan has completed successfully. The in-flight
       // promise above coalesces duplicate opens/refreshes into one operation.
-      if (!(await consumeTimelineUse(this))) throw new Error("Timeline use unavailable.");
-      return result;
+      this.preservedSnapshot={id:jobId(),source,result,notes:files.length,revealed:false};
+      return {events:result.events.slice(0,3),review:result.review.slice(0,2)};
     } finally {
       if (this.scanController === controller) this.scanController = null;
     }
@@ -125,7 +143,7 @@ export class MeridianTimelineView extends ItemView {
   getDisplayText(): string { return "Meridian Timeline"; }
   getIcon(): string { return "clock-3"; }
   async onOpen(): Promise<void> { this.renderShell(); await this.loadTimeline(); }
-  async onClose(): Promise<void> { this.plugin.cancelScan(); }
+  async onClose(): Promise<void> { this.plugin.cancelScan(); this.plugin.clearUnrevealedSnapshot(); }
   showScanMessage(message: string): void { this.scanMessage = message; if (this.statusEl) this.statusEl.setText(message); }
   async loadTimeline(force = false): Promise<void> {
     if (!this.statusEl) return;
@@ -133,15 +151,15 @@ export class MeridianTimelineView extends ItemView {
     try {
       const result = await this.plugin.scan((done, total) => this.showScanMessage(`Scanning notes: ${done}/${total}`));
       this.events = result.events; this.review = result.review; await this.plugin.saveSettings(); this.renderEvents();
-      this.showScanMessage(`${this.events.length} event${this.events.length === 1 ? "" : "s"} · ${this.review.length} item${this.review.length === 1 ? "" : "s"} to review`);
+      this.showScanMessage(`Limited timeline preview. Keep this view open through sign-in/verification, then reveal the exact full snapshot without rescanning.`);
     } catch (error) { this.showScanMessage(error instanceof Error ? error.message : "Timeline scan failed."); }
   }
   fitAll(): void { this.zoom = 1; this.renderEvents(); }
-  saveNamedView(): void { new SaveViewModal(this.app, (name) => { const view: NamedView = { name, ...this.filters, groupBy: this.groupBy }; this.plugin.settings.namedViews = [...this.plugin.settings.namedViews.filter((item) => item.name !== name), view]; void this.plugin.saveSettings(); new Notice(`Meridian saved “${name}”.`); this.renderControls(); }).open(); }
+  saveNamedView(): void { if(!this.plugin.snapshotRevealed()){new Notice("Reveal the preserved full timeline before saving. Keep this view open through sign-in.");return;} new SaveViewModal(this.app, (name) => { const view: NamedView = { name, ...this.filters, groupBy: this.groupBy }; this.plugin.settings.namedViews = [...this.plugin.settings.namedViews.filter((item) => item.name !== name), view]; void this.plugin.saveSettings(); new Notice(`Meridian saved “${name}”.`); this.renderControls(); }).open(); }
   private renderShell(): void {
     const root = this.contentEl; root.empty(); root.addClass("meridian-root");
     const heading = root.createDiv("meridian-header"); const title = heading.createDiv(); title.createEl("h1", { text: "Meridian Timeline" }); title.createEl("p", { text: "A local, readable chronology of your notes." });
-    const actions = heading.createDiv("meridian-actions"); actions.createEl("button", { text: "Refresh" }).addEventListener("click", () => void this.loadTimeline(true)); actions.createEl("button", { text: "Fit all" }).addEventListener("click", () => this.fitAll()); actions.createEl("button", { text: "Zoom −" }).addEventListener("click", () => { this.zoom = Math.max(.5, this.zoom / 1.25); this.renderEvents(); }); actions.createEl("button", { text: "Zoom +" }).addEventListener("click", () => { this.zoom = Math.min(8, this.zoom * 1.25); this.renderEvents(); }); actions.createEl("button", { text: "Focus selected" }).addEventListener("click", () => this.focusSelected()); actions.createEl("button", { text: "Save view" }).addEventListener("click", () => this.saveNamedView());
+    const actions = heading.createDiv("meridian-actions"); actions.createEl("button",{text:"Reveal exact full timeline"}).addEventListener("click",()=>void this.plugin.revealSnapshot().then(result=>{if(result){this.events=result.events;this.review=result.review;this.renderEvents();this.showScanMessage("Full snapshot authorized once. Viewing and saving this same snapshot are free.");}})); actions.createEl("button", { text: "Refresh" }).addEventListener("click", () => void this.loadTimeline(true)); actions.createEl("button", { text: "Fit all" }).addEventListener("click", () => this.fitAll()); actions.createEl("button", { text: "Zoom −" }).addEventListener("click", () => { this.zoom = Math.max(.5, this.zoom / 1.25); this.renderEvents(); }); actions.createEl("button", { text: "Zoom +" }).addEventListener("click", () => { this.zoom = Math.min(8, this.zoom * 1.25); this.renderEvents(); }); actions.createEl("button", { text: "Focus selected" }).addEventListener("click", () => this.focusSelected()); actions.createEl("button", { text: "Save view" }).addEventListener("click", () => this.saveNamedView());
     this.renderControls();
     const info = root.createDiv("meridian-info"); info.setText("Exact dates are solid, approximate dates are dashed, and uncertain dates are marked with a question badge. Click an event to open its source note.");
     this.viewport = root.createDiv("meridian-viewport"); this.viewport.setAttribute("role", "region"); this.viewport.setAttribute("aria-label", "Interactive timeline"); this.eventLayer = this.viewport.createDiv("meridian-event-layer");
@@ -180,20 +198,25 @@ export class MeridianSettingTab extends PluginSettingTab {
   constructor(app: ConstructorParameters<typeof PluginSettingTab>[0], private readonly plugin: MeridianTimelinePlugin) { super(app, plugin); }
   display(): void {
     const { containerEl } = this; containerEl.empty();
-    this.plugin.support.addDiagnosticsSetting(containerEl); containerEl.createEl("h2", { text: "Meridian Timeline" }); containerEl.createEl("p", { text: "Meridian reads notes locally and never changes source files. Structured frontmatter is preferred; content scanning is a fallback." });
+    const advanced = this.plugin.settings.settingsMode === "advanced";
+    new Setting(containerEl).setName("Settings mode").setDesc("Simple shows everyday settings. Advanced adds scan rules, limits, and diagnostics.").addDropdown((dropdown) => dropdown.addOptions({ simple: "Simple", advanced: "Advanced" }).setValue(advanced ? "advanced" : "simple").onChange(async (value) => { this.plugin.settings.settingsMode = value === "advanced" ? "advanced" : "simple"; await this.plugin.saveSettings(); this.display(); }));
+    if (advanced) this.plugin.support.addDiagnosticsSetting(containerEl); containerEl.createEl("h2", { text: "Meridian Timeline" }); containerEl.createEl("p", { text: "Meridian reads notes locally and never changes source files. Structured frontmatter is preferred; content scanning is a fallback." });
     const preview = containerEl.createDiv("meridian-settings-preview"); preview.createEl("h3", { text: "Quick preview" }); preview.createEl("p", { text: "Exact dates appear as solid bars; approximate dates use a dashed edge; uncertain/conflicting dates carry a question badge." }); const sample = preview.createDiv("meridian-preview-bars"); sample.createDiv("meridian-preview-bar meridian-preview-exact").setText("Exact"); sample.createDiv("meridian-preview-bar meridian-preview-approx").setText("Approximate"); sample.createDiv("meridian-preview-bar meridian-preview-uncertain").setText("Uncertain?");
-    new Setting(containerEl).setName("First-run setup").setDesc("Start with date, start, end, created, and modified. Add a small preview to your workflow by opening the timeline.").addButton((button) => button.setButtonText(this.plugin.settings.onboardingComplete ? "Setup complete" : "Mark setup complete").setCta().onClick(async () => { this.plugin.settings.onboardingComplete = true; await this.plugin.saveSettings(); this.display(); }));
-    new Setting(containerEl).setName("Date properties").setDesc("Comma-separated frontmatter properties, in priority order.").addText((text) => text.setValue(this.plugin.settings.dateProperties.join(", ")).onChange(async (value) => { this.plugin.settings.dateProperties = value.split(",").map((item) => item.trim()).filter(Boolean); await this.plugin.saveSettings(); }));
-    new Setting(containerEl).setName("Content patterns").setDesc("Optional regular expressions. Capture the date in group 1; malformed expressions are reported in Review.").addTextArea((text) => text.setValue(this.plugin.settings.contentPatterns.join("\n")).onChange(async (value) => { this.plugin.settings.contentPatterns = value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean); await this.plugin.saveSettings(); }));
-    new Setting(containerEl).setName("Era labels").setDesc("One label=year per line, for example ‘Renaissance=1400’.").addTextArea((text) => text.setValue(Object.entries(this.plugin.settings.eraLabels).map(([key, value]) => `${key}=${value}`).join("\n")).onChange(async (value) => { const eras: Record<string, number> = {}; for (const line of value.split(/\r?\n/)) { const [key, raw] = line.split("="); const year = Number(raw); if (key?.trim() && Number.isFinite(year)) eras[key.trim()] = year; } this.plugin.settings.eraLabels = eras; await this.plugin.saveSettings(); }));
+    new Setting(containerEl).setName("Date properties").setDesc("Comma-separated properties in priority order; for example date, start, end. Use ISO dates such as 2026-09-30 in notes.").addText((text) => text.setValue(this.plugin.settings.dateProperties.join(", ")).onChange(async (value) => { this.plugin.settings.dateProperties = value.split(",").map((item) => item.trim()).filter(Boolean); await this.plugin.saveSettings(); }));
+    if (advanced) new Setting(containerEl).setName("Content patterns").setDesc("Optional regular expressions. Capture the date in group 1; malformed expressions are reported in Review.").addTextArea((text) => text.setValue(this.plugin.settings.contentPatterns.join("\n")).onChange(async (value) => { this.plugin.settings.contentPatterns = value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean); await this.plugin.saveSettings(); }));
+    if (advanced) new Setting(containerEl).setName("Era labels").setDesc("One label=year per line, for example ‘Renaissance=1400’.").addTextArea((text) => text.setValue(Object.entries(this.plugin.settings.eraLabels).map(([key, value]) => `${key}=${value}`).join("\n")).onChange(async (value) => { const eras: Record<string, number> = {}; for (const line of value.split(/\r?\n/)) { const [key, raw] = line.split("="); const year = Number(raw); if (key?.trim() && Number.isFinite(year)) eras[key.trim()] = year; } this.plugin.settings.eraLabels = eras; await this.plugin.saveSettings(); }));
     new Setting(containerEl).setName("Ignored folders").setDesc("Comma-separated vault-relative folders.").addText((text) => text.setValue(this.plugin.settings.ignoredFolders.join(", ")).onChange(async (value) => { this.plugin.settings.ignoredFolders = value.split(",").map((item) => item.trim()).filter(Boolean); await this.plugin.saveSettings(); }));
-    new Setting(containerEl).setName("Ignored note patterns").setDesc("Optional regular expressions matched against vault paths.").addTextArea((text) => text.setValue(this.plugin.settings.ignoredPatterns.join("\n")).onChange(async (value) => { this.plugin.settings.ignoredPatterns = value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean); await this.plugin.saveSettings(); }));
-    new Setting(containerEl).setName("Maximum events").setDesc("Protect responsiveness in very large vaults; the review list still reports all scanned notes.").addText((text) => text.setValue(String(this.plugin.settings.maxEvents)).onChange(async (value) => { const max = Math.max(100, Math.min(50000, Number(value) || 5000)); this.plugin.settings.maxEvents = max; await this.plugin.saveSettings(); }));
-    new Setting(containerEl).setName("Billing").setHeading(); containerEl.createEl("p", { text: `You get 3 timeline scans per local calendar day. After that, Meridian uses Constance credits: $1 buys 100 scans and $10 buys 1,000 scans. Remaining purchased scans: ${this.plugin.settings.purchasedUses.toLocaleString()}. Opening a timeline view or selecting Refresh runs a scan; revealing an open view does not.` });
-    addBillingAccountSettings(containerEl, { state: this.plugin.settings, persist: () => this.plugin.saveSettings(), refresh: () => this.display() });
-    new Setting(containerEl).setName("Buy uses").setDesc("Checkout is provided by TutivSoft Constance; credits are tied to this installation.").addButton((button) => button.setButtonText("Buy $1 · 100 uses").onClick(() => openCheckout(this.plugin, "usd_001"))).addButton((button) => button.setButtonText("Buy $10 · 1,000 uses").setCta().onClick(() => openCheckout(this.plugin, "usd_010")));
-    new Setting(containerEl).setName("Refresh purchased balance").addButton((button) => button.setButtonText("Refresh").onClick(async () => { button.setDisabled(true); await syncPurchasedUses(this.plugin); button.setDisabled(false); this.display(); }));
-    new Setting(containerEl).setName("Privacy and threat model").setHeading(); containerEl.createEl("p", { text: "Meridian reads only Markdown files in the current vault through Obsidian’s local APIs and never sends note content. It does contact TutivSoft Constance only to sync and spend anonymous per-install usage credits and to open checkout when you explicitly buy uses. Source notes are read-only. Parsed event data is cached in Obsidian plugin data; the cache may include note paths, titles, headings, tags, and timestamps, so protect the vault profile accordingly." });
-    new Setting(containerEl).setName("Named views").setHeading(); this.plugin.settings.namedViews.forEach((view) => new Setting(containerEl).setName(view.name).setDesc(`${view.search || "All notes"} · ${view.groupBy}`).addButton((button) => button.setButtonText("Delete").setWarning().onClick(async () => { this.plugin.settings.namedViews = this.plugin.settings.namedViews.filter((item) => item.name !== view.name); await this.plugin.saveSettings(); this.display(); })));
+    if (advanced) new Setting(containerEl).setName("Ignored note patterns").setDesc("Optional regular expressions matched against vault paths.").addTextArea((text) => text.setValue(this.plugin.settings.ignoredPatterns.join("\n")).onChange(async (value) => { this.plugin.settings.ignoredPatterns = value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean); await this.plugin.saveSettings(); }));
+    if (advanced) new Setting(containerEl).setName("Maximum events").setDesc("Limit rendered events to keep large vaults responsive. 5,000 is recommended; Review still reports all scanned notes.").addDropdown((dropdown) => dropdown.addOptions({ [String(this.plugin.settings.maxEvents)]: `${this.plugin.settings.maxEvents.toLocaleString()} · current`, "1000": "1,000 · lighter", "5000": "5,000 · recommended", "10000": "10,000 · large vault", "50000": "50,000 · demanding" }).setValue(String(this.plugin.settings.maxEvents)).onChange(async (value) => { this.plugin.settings.maxEvents = Number(value); await this.plugin.saveSettings(); }));
+    new Setting(containerEl).setName("Billing").setHeading(); containerEl.createEl("p",{text:"One lifetime starter allowance, up to five successful snapshots. Full reveal consumes one native unit; viewing or saving that immutable snapshot does not charge again. Exact free/purchased split is confirmed by Constance."});
+    const balanceSummary = containerEl.createEl("p", { cls: "meridian-billing-summary", attr: { role: "status", "aria-live": "polite" } });
+    const renderBalanceSummary = () => balanceSummary.setText(`Purchased timeline uses: ${Math.max(0, this.plugin.settings.purchasedUses).toLocaleString()}`);
+    this.plugin.billingSummaryRefresh = renderBalanceSummary;
+    renderBalanceSummary();
+    addBillingAccountSettings(containerEl, { state: this.plugin.settings, appId: "meridian-timeline", installationId: this.plugin.settings.constanceDeviceId, syncBalance: () => syncPurchasedUses(this.plugin), persist: () => this.plugin.saveSettings(), refresh: () => this.display() });
+    void renderNativePacks(containerEl,{app:this.app,settings:this.plugin.settings,persistNative:()=>this.plugin.saveSettings()},"meridian-timeline",async plan=>{const {openAccountCheckoutByPrice}=await import("./billing-checkout");await openAccountCheckoutByPrice({state:this.plugin.settings,appId:"meridian-timeline",installationId:this.plugin.settings.constanceDeviceId,persist:()=>this.plugin.saveSettings(),syncBalance:()=>syncPurchasedUses(this.plugin),refreshSession:async()=>{const a=await import("./constance-account");return a.refreshBillingSession(this.plugin.settings,()=>this.plugin.saveSettings());}},plan);});
+    new Setting(containerEl).setName("Refresh purchased balance").addButton((button) => button.setButtonText("Refresh").onClick(async () => { button.setDisabled(true); button.setButtonText("Refreshing…"); try { await syncPurchasedUses(this.plugin, true); this.display(); } catch { new Notice("Balance could not be refreshed. Check your connection and retry."); } finally { button.setDisabled(false); button.setButtonText("Refresh"); } }));
+    if (advanced) new Setting(containerEl).setName("Privacy and threat model").setHeading(); containerEl.createEl("p", { text: "Notes are read locally and never uploaded or edited. Constance manages account credits and checkout. The local timeline cache includes note paths, titles, and dates." });
+    if (advanced) new Setting(containerEl).setName("Named views").setHeading(); this.plugin.settings.namedViews.forEach((view) => new Setting(containerEl).setName(view.name).setDesc(`${view.search || "All notes"} · ${view.groupBy}`).addButton((button) => button.setButtonText("Delete").setWarning().onClick(async () => { this.plugin.settings.namedViews = this.plugin.settings.namedViews.filter((item) => item.name !== view.name); await this.plugin.saveSettings(); this.display(); })));
   }
 }

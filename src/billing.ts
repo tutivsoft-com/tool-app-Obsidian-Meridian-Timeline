@@ -1,4 +1,7 @@
+import { resumeAccountCheckout } from "./billing-checkout";
+import { openAccountCheckout } from "./billing-checkout";
 import { Notice, requestUrl } from "obsidian";
+import { claimAccountFreeUsage, spendAccountCredits, refreshBillingSession } from "./constance-account";
 import type MeridianTimelinePlugin from "./main";
 import { freeUsesRemaining, isValidBillingEmail, localDateKey, normalizedBalance } from "./billing-policy";
 
@@ -7,12 +10,7 @@ export const MERIDIAN_APP_ID = "meridian-timeline";
 // Kept as a compatibility alias for integrations that imported the original
 // scaffold name; both identifiers resolve to Meridian's unique app entry.
 export const CONSTANCE_APP_ID = MERIDIAN_APP_ID;
-export const MERIDIAN_PRICE_IDS = {
-  usd_001: "pri_01m28hmpn9ze05g1fg490xp9f8",
-  usd_010: "pri_01m28hmqn785817mzy2tfa89kz",
-} as const;
-
-export type MeridianPackKey = keyof typeof MERIDIAN_PRICE_IDS;
+export type MeridianPackKey = "usd_001" | "usd_010";
 export type SpendResult = { kind: "ok"; balance: number } | { kind: "insufficient" } | { kind: "error" };
 
 const billingLocks = new WeakMap<object, Promise<void>>();
@@ -36,23 +34,31 @@ export function generateDeviceId(): string {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-export async function syncPurchasedUses(plugin: MeridianTimelinePlugin): Promise<void> {
+export async function syncPurchasedUses(plugin: MeridianTimelinePlugin, strict = false): Promise<void> {
+  resumeAccountCheckout({ state: plugin.settings, appId: MERIDIAN_APP_ID, installationId: plugin.settings.constanceDeviceId,
+    persist: () => plugin.saveSettings(), syncBalance: () => syncPurchasedUses(plugin), refreshSession: () => refreshBillingSession(plugin.settings, () => plugin.saveSettings()) });
+
   return withBillingLock(plugin, async () => {
     if (!plugin.settings.constanceDeviceId) return;
     try {
-      const response = await requestUrl({
-        url: `${BASE_URL}/api/v1/public/browser/entitlements`, method: "POST", throw: false,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ app_id: MERIDIAN_APP_ID, external_customer_id: plugin.settings.constanceDeviceId, machine_id: plugin.settings.constanceDeviceId, validation_reason: "manual" }),
-      });
+      if (!plugin.settings.billingAccountLinked) { if (strict) throw new Error("Connect your account before refreshing."); return; }
+      const query = new URLSearchParams({ app_id: MERIDIAN_APP_ID, installation_id: plugin.settings.constanceDeviceId });
+      const send = () => requestUrl({ url: `${BASE_URL}/api/v1/billing/entitlements/me?${query}`, method: "GET", throw: false, headers: { Authorization: `Bearer ${plugin.settings.billingAccessToken}` } });
+      let response = await send();
+      if (response.status === 401 && await refreshBillingSession(plugin.settings, () => plugin.saveSettings())) response = await send();
       if (response.status >= 200 && response.status < 300) {
         const balance = normalizedBalance(response.json?.data?.credits?.balance);
+        if (strict && balance === null) throw new Error("Invalid balance response.");
         if (balance !== null) {
           plugin.settings.purchasedUses = balance;
+          plugin.settings.freeUsesToday = Number(response.json?.data?.free_usage?.used) || 0;
+          plugin.settings.freeUsesDate = String(response.json?.data?.free_usage?.period_key || "");
           await plugin.saveSettings();
+          plugin.refreshBillingSummary?.();
         }
-      }
-    } catch (error) { console.warn("Meridian: Constance balance sync failed", error); }
+      } else if (strict) throw new Error("Balance request failed.");
+    } catch (error) { console.warn("Meridian: Constance balance sync failed", error);
+      if (strict) throw error; }
   });
 }
 
@@ -62,19 +68,13 @@ async function spendPurchasedUseUnlocked(plugin: MeridianTimelinePlugin, stableE
     .filter((item, index, items) => items.findIndex((candidate) => candidate.eventId === item.eventId) === index);
   await plugin.saveSettings();
   try {
-    const response = await requestUrl({
-      url: `${BASE_URL}/api/v1/public/browser/credits/spend`, method: "POST", throw: false,
-      headers: { "Content-Type": "application/json", "Idempotency-Key": stableEventId },
-      body: JSON.stringify({ app_id: MERIDIAN_APP_ID, external_customer_id: plugin.settings.constanceDeviceId, machine_id: plugin.settings.constanceDeviceId, amount: 1, event_id: stableEventId }),
-    });
-    if (response.status === 402 || response.status === 404) { plugin.settings.pendingSpendEvents = plugin.settings.pendingSpendEvents.filter((item) => item.eventId !== stableEventId); await plugin.saveSettings(); return { kind: "insufficient" }; }
-    if (response.status < 200 || response.status >= 300) return { kind: "error" };
-    const balance = normalizedBalance(response.json?.data?.credits?.balance);
-    if (balance === null) return { kind: "error" };
+    const result = await spendAccountCredits(plugin.settings, MERIDIAN_APP_ID, plugin.settings.constanceDeviceId, stableEventId, 1, () => plugin.saveSettings());
+    if (result.kind === "error" || result.kind === "auth-required") return { kind: "error" };
     plugin.settings.pendingSpendEvents = plugin.settings.pendingSpendEvents.filter((item) => item.eventId !== stableEventId);
-    await plugin.saveSettings();
-    return { kind: "ok", balance };
-  } catch (error) { console.warn("Meridian: Constance credit spend failed", error); return { kind: "error" }; }
+    try { await plugin.saveSettings(); }
+    catch { plugin.settings.pendingSpendEvents.push({ eventId: stableEventId, amount: 1, kind: "paid" }); throw new Error("Usage receipt could not be saved"); }
+    return result;
+  } catch { return { kind: "error" }; }
 }
 
 export function spendPurchasedUse(plugin: MeridianTimelinePlugin): Promise<SpendResult> {
@@ -84,8 +84,16 @@ export function spendPurchasedUse(plugin: MeridianTimelinePlugin): Promise<Spend
 export function retryPendingSpendEvents(plugin: MeridianTimelinePlugin): Promise<void> {
   return withBillingLock(plugin, async () => {
     for (const pending of [...(plugin.settings.pendingSpendEvents ?? [])]) {
+      if (pending.kind === "free") {
+        const result = await claimAccountFreeUsage(plugin.settings, MERIDIAN_APP_ID, plugin.settings.constanceDeviceId, pending.eventId, pending.amount, () => plugin.saveSettings());
+        if (result.kind === "error" || result.kind === "auth-required") break;
+        plugin.settings.pendingSpendEvents = plugin.settings.pendingSpendEvents.filter(item => item.eventId !== pending.eventId);
+        if (result.kind === "ok") plugin.settings.recoveredTimelineUses = (plugin.settings.recoveredTimelineUses ?? 0) + 1;
+        await plugin.saveSettings(); continue;
+      }
       const result = await spendPurchasedUseUnlocked(plugin, pending.eventId);
       if (result.kind === "error") break;
+      if (result.kind === "ok") plugin.settings.recoveredTimelineUses = (plugin.settings.recoveredTimelineUses ?? 0) + 1;
       plugin.settings.purchasedUses = result.kind === "ok" ? result.balance : 0;
       await plugin.saveSettings();
     }
@@ -93,16 +101,22 @@ export function retryPendingSpendEvents(plugin: MeridianTimelinePlugin): Promise
 }
 
 export async function consumeTimelineUse(plugin: MeridianTimelinePlugin): Promise<boolean> {
+  await retryPendingSpendEvents(plugin);
   return withBillingLock(plugin, async () => {
-    const today = localDateKey();
-    const previousDate = plugin.settings.freeUsesDate;
-    const previousUsed = plugin.settings.freeUsesToday;
-    if (plugin.settings.freeUsesDate !== today) { plugin.settings.freeUsesDate = today; plugin.settings.freeUsesToday = 0; }
-    if (freeUsesRemaining(today, plugin.settings.freeUsesDate, plugin.settings.freeUsesToday) > 0) {
-      plugin.settings.freeUsesToday = Math.max(0, Math.floor(Number(plugin.settings.freeUsesToday) || 0)) + 1;
-      try { await plugin.saveSettings(); } catch (error) { plugin.settings.freeUsesDate = previousDate; plugin.settings.freeUsesToday = previousUsed; throw error; }
-      return true;
+    if (!plugin.settings.billingAccountLinked) { new Notice("Connect your billing account in Meridian settings first."); return false; }
+    if ((plugin.settings.recoveredTimelineUses ?? 0) > 0) {
+      plugin.settings.recoveredTimelineUses!--;
+      await plugin.saveSettings(); return true;
     }
+    if (plugin.settings.pendingSpendEvents.length) { new Notice("A previous usage request is pending. It will be retried automatically."); return false; }
+    const id = `free_${generateBillingEventId()}`;
+    plugin.settings.pendingSpendEvents.push({ eventId: id, amount: 1, kind: "free" });
+    await plugin.saveSettings();
+    const free = await claimAccountFreeUsage(plugin.settings, MERIDIAN_APP_ID, plugin.settings.constanceDeviceId, id, 1, () => plugin.saveSettings());
+    if (free.kind === "error" || free.kind === "auth-required") { new Notice("Could not verify your free allowance. Please try again."); return false; }
+    plugin.settings.pendingSpendEvents = plugin.settings.pendingSpendEvents.filter(item => item.eventId !== id);
+    await plugin.saveSettings();
+    if (free.kind === "ok") { plugin.settings.freeUsesToday = 3 - free.remaining; await plugin.saveSettings(); return true; }
     const result = await spendPurchasedUseUnlocked(plugin);
     if (result.kind === "ok") {
       plugin.settings.purchasedUses = result.balance;
@@ -120,18 +134,11 @@ export async function consumeTimelineUse(plugin: MeridianTimelinePlugin): Promis
   });
 }
 
-export function openCheckout(plugin: MeridianTimelinePlugin, pack: MeridianPackKey): void {
-  const email = plugin.settings.billingEmail.trim();
-  const priceId: string = MERIDIAN_PRICE_IDS[pack];
-  if (!plugin.settings.constanceDeviceId) { new Notice("Meridian is still setting up this installation. Try again in a moment."); return; }
-  if (!isValidBillingEmail(email)) { new Notice("Enter a valid checkout email in Meridian settings first."); return; }
-  if (!priceId || priceId === "PENDING_PROVISIONING") { new Notice("Meridian billing is awaiting Constance/Paddle price provisioning."); return; }
-  const params = new URLSearchParams({ app_id: MERIDIAN_APP_ID, price_id: priceId, email, external_customer_id: plugin.settings.constanceDeviceId });
-  if (!window.open(`${BASE_URL}/buy?${params.toString()}`, "_blank")) {
-    new Notice("Meridian checkout could not be opened. Allow pop-ups and try again.");
-    return;
-  }
-  plugin.pollAfterCheckout();
+export async function openCheckout(plugin: MeridianTimelinePlugin, pack: MeridianPackKey): Promise<void> {
+  await openAccountCheckout({
+    state: plugin.settings, appId: MERIDIAN_APP_ID, installationId: plugin.settings.constanceDeviceId,
+    persist: () => plugin.saveSettings(), syncBalance: () => syncPurchasedUses(plugin), refreshSession: () => refreshBillingSession(plugin.settings, () => plugin.saveSettings()),
+  }, pack === "usd_001" ? "one_time" : "standard");
 }
 
 export { freeUsesRemaining, localDateKey } from "./billing-policy";
