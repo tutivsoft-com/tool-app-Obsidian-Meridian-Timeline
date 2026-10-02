@@ -107,7 +107,7 @@ export class PluginSupport {
     });
     registerCommand({
       id: "copy-debug-log",
-      name: "Copy debug log",
+      name: "Copy full debug log",
       callback: () => this.copyDiagnostics(),
     });
     registerCommand({

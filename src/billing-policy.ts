@@ -1,4 +1,4 @@
-export const FREE_USES_PER_DAY = 3;
+export const FREE_USES_PER_DAY = 5;
 
 export function localDateKey(now = new Date()): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
@@ -6,7 +6,7 @@ export function localDateKey(now = new Date()): string {
 
 export function freeUsesRemaining(today: string, recordedDate: string, used: number): number {
   const safeUsed = Number.isFinite(used) ? Math.max(0, Math.floor(used)) : 0;
-  return recordedDate === today ? Math.max(0, FREE_USES_PER_DAY - safeUsed) : FREE_USES_PER_DAY;
+  return Math.max(0, FREE_USES_PER_DAY - safeUsed);
 }
 
 export function normalizedBalance(value: unknown): number | null {
