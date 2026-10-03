@@ -1,12 +1,10 @@
 # Meridian Timeline
 
-Version: 3.4.36 — validated locally for publication; release pending.
+Version: 3.4.37 — validated locally for publication; Community release pending.
 
 ## Current purchase behavior
 
 Purchase settings load the current public product catalog from Constance. Each available offer supplies its exact Paddle price ID, native-unit grant, unit name, and formatted amount. The client displays backend-provided amounts, enables only offers marked available, and submits the selected price ID through authenticated checkout with quantity one. Existing account balances and granted credits remain associated with the account.
-
-<!-- SETTINGS-CURRENT-2026-09-30 -->
 
 ## Preview and lifetime allowance
 
@@ -21,7 +19,6 @@ Useful local writes follow durable reserve -> write -> verify -> commit. Full re
 ## Current settings
 
 Settings default to **Simple** and remember the selected mode. Simple contains everyday controls and account/billing. **Advanced** adds specialist preferences and diagnostics. This plugin runs locally without a managed AI provider. Account and encryption passwords remain necessary.
-<!-- SETTINGS-CURRENT-2026-09-30:END -->
 
 ## Current local billing source - 30 September 2026
 
@@ -56,11 +53,9 @@ Meridian reads and parses notes locally through Obsidian’s vault APIs and does
 
 MIT. See [LICENSE](LICENSE).
 
-<!-- one-click-workflow:start -->
 ## Workflow defaults (v3.4.36)
 
 Meridian opens the read-only timeline scan directly. It does not write to notes, so there is no edit approval step.
-<!-- one-click-workflow:end -->
 
 ## Billing and credit feedback
 
