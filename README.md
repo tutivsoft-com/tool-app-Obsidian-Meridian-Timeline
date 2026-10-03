@@ -1,12 +1,10 @@
 # Meridian Timeline
 
-Version: 3.4.36 — validated locally for publication; release pending.
+Version: 3.4.38
 
 ## Current purchase behavior
 
 Purchase settings load the current public product catalog from Constance. Each available offer supplies its exact Paddle price ID, native-unit grant, unit name, and formatted amount. The client displays backend-provided amounts, enables only offers marked available, and submits the selected price ID through authenticated checkout with quantity one. Existing account balances and granted credits remain associated with the account.
-
-<!-- SETTINGS-CURRENT-2026-09-30 -->
 
 ## Preview and lifetime allowance
 
@@ -16,19 +14,15 @@ Constance authorizes metered operations using this app’s native billing unit. 
 
 A bounded timeline snapshot covers up to twenty notes. Full snapshot reveal consumes once; viewing or saving that immutable snapshot does not charge again. Guest scope is limited to twenty notes. File changes prompt explicit refresh rather than automatic useful completion.
 
-Useful local writes follow durable reserve -> write -> verify -> commit. Full reveal commits before showing complete content. Unknown writes retain their journal for status/output reconciliation; they are never blindly refunded or replayed. Billing sends account/install identity, native dimensions and source/result digests, never vault content, image bytes or encryption passwords.
+Useful local writes follow durable reserve -> write -> verify -> commit. Full reveal commits before showing complete content. Unknown writes retain their journal for status/output reconciliation; they are never blindly refunded or replayed. Billing sends account/install identity, native dimensions, and source/result digests; it never sends note content.
 
 ## Current settings
 
-Settings default to **Simple** and remember the selected mode. Simple contains everyday controls and account/billing. **Advanced** adds specialist preferences and diagnostics. This plugin runs locally without a managed AI provider. Account and encryption passwords remain necessary.
-<!-- SETTINGS-CURRENT-2026-09-30:END -->
+Settings default to **Simple** and remember the selected mode. Simple contains everyday controls and account/billing. **Advanced** adds specialist preferences and diagnostics. This plugin runs locally without a managed AI provider. Connect a Constance account to refresh balances and authorize metered operations. Meridian does not encrypt note data.
 
-## Current local billing source - 30 September 2026
+## Constance account and usage
 
-Use **Connect** with an email and password: new users register and verify the email link; existing verified users sign in. Unverified users with the correct password receive a fresh verification link. Passwords are not stored. Use the password-reset control if the password is incorrect.
-
-Constance authenticates linked installations and owns free allowances, paid balances, usage units, and purchase fulfillment. Reinstalling the same app and reconnecting the same account does not replenish its free allowance. Daily policies reset at UTC midnight. Unknown usage and checkout outcomes retain their original journal and identifiers across retries; an alternative checkout is never used to bypass uncertainty. Balances refresh from authenticated entitlements.
-
+Use **Connect** with your Constance account. New users verify the emailed link, then connect again; existing verified users sign in. Passwords are not saved by Meridian. Constance owns the lifetime starter allowance, purchased balances, usage authorization, and checkout fulfillment. Reinstalling and reconnecting the same account does not reset its allowance. Usage and checkout retries reuse their original identifiers rather than starting a duplicate operation.
 
 Meridian Timeline is a local-first Obsidian plugin that turns dated notes, eras, and historical spans into a readable interactive chronology. It keeps every displayed event connected to its source note.
 
@@ -44,7 +38,7 @@ Meridian Timeline is a local-first Obsidian plugin that turns dated notes, eras,
 ## Billing and usage
 
 
-Authenticated entitlements and server usage claims determine balances. Purchase settings fetch provider-backed offers from Constance and show only available rows, using each exact configured price ID. The current approved one-time packs grant 50, 150, 450, or 1,200 timeline operations for USD $2, $4, $8, or $14; client code does not contain price amounts. Authenticated checkout submits the selected ID with quantity one and a persisted idempotency key. Restart recovery and settlement polling reuse that checkout identity. Reinstalling and reconnecting restores the account's existing balance and free allowance. Note content stays in the vault.
+Authenticated entitlements and server usage claims determine balances. Current offer amounts, grants, descriptions, and availability come from Constance; Meridian displays only available offers and submits the selected exact price ID. Checkout uses quantity one and a persisted idempotency key, and restart recovery reuses that checkout identity. Reinstalling and reconnecting preserves the account's balance and free allowance. Note content stays in the vault.
 
 Open **Meridian Timeline: Open timeline** from the command palette. Configure properties, ignored folders, content patterns, and era labels in **Settings → Meridian Timeline**.
 
@@ -56,11 +50,9 @@ Meridian reads and parses notes locally through Obsidian’s vault APIs and does
 
 MIT. See [LICENSE](LICENSE).
 
-<!-- one-click-workflow:start -->
-## Workflow defaults (v3.4.36)
+## Workflow defaults (v3.4.38)
 
 Meridian opens the read-only timeline scan directly. It does not write to notes, so there is no edit approval step.
-<!-- one-click-workflow:end -->
 
 ## Billing and credit feedback
 
