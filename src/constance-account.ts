@@ -1,3 +1,4 @@
+import { renderAccountGuidance } from "./account-guidance";
 import { resumeAccountCheckout } from "./billing-checkout";
 import { Notice, Setting, requestUrl } from "obsidian";
 
@@ -317,6 +318,7 @@ export function addBillingAccountSettings(containerEl: HTMLElement, adapter: Con
   let password = "";
   const section = containerEl.createDiv({ cls: "constance-account-billing-section" });
   section.createEl("h3", { text: "Account and billing" });
+  renderAccountGuidance(section, {appId:adapter.appId,connected:Boolean(adapter.state.billingAccountLinked && adapter.state.billingAccessToken),defaultAllowance:5,unit:"timeline operations",workflow:"Start with 5 timeline credits over the lifetime of your account. One credit covers up to 20 notes; larger timelines use proportionately more credits (maximum 2,000 notes per local scan). Free credits are used automatically before purchased credits."});
   const state = adapter.state as ConstanceAccountState & Record<string, unknown>;
   const numericBalances = Object.entries(state)
     .filter(([key, value]) => /(?:credit|balance|remaining)/i.test(key) && typeof value === "number")
@@ -328,7 +330,7 @@ export function addBillingAccountSettings(containerEl: HTMLElement, adapter: Con
       : "Not signed in.";
   section.createEl("p", {
     cls: "constance-account-status",
-    text: numericBalances.length ? `${accountStatus} Balance — ${numericBalances.join("; ")}` : accountStatus,
+    text: adapter.state.billingAccountLinked && adapter.state.billingAccessToken && numericBalances.length ? `${accountStatus} Balance — ${numericBalances.join("; ")}` : accountStatus,
   });
 
   new Setting(section)

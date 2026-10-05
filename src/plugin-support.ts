@@ -61,6 +61,10 @@ class DocumentationModal extends Modal {
       const list = this.contentEl.createEl("ol");
       for (const item of items) list.createEl("li", { text: item });
     };
+    this.contentEl.createEl("p", { text: "Open plugin settings to create an account or sign in. Verify your email if requested, then select Connect. Registered accounts receive 5 lifetime timeline credits as a thank-you for trying the app. One credit covers up to 20 notes; larger timelines use proportionately more credits, with a maximum of 2,000 notes per local scan." });
+    this.contentEl.createEl("p", { text: "Free usage requires a connected account to prevent abuse of the allowance. When the app meets your needs, you can add more credits through affordable credit packs; current prices appear in settings." });
+    this.contentEl.createEl("p", { text: "Choose your note scope in settings, open the timeline, then review its events." });
+    new Setting(this.contentEl).setName("Get started").addButton(button => button.setButtonText("Create account / Sign in").setCta().onClick(() => { const setting = (this.app as any).setting; setting?.open(); setting?.openTabById("meridian-timeline"); this.close(); }));
     addSection("Quick start", this.docs.quickStart);
     addSection("Useful commands", Array.from(new Set([...this.docs.commands, "Copy full debug log"])));
     addSection("Troubleshooting", this.docs.troubleshooting);
@@ -120,6 +124,24 @@ export class PluginSupport {
       },
     });
 
+    this.plugin.app.workspace.onLayoutReady(() => {
+      const status = this.plugin.addStatusBarItem();
+      status.setText("Meridian: connect account for your free allowance");
+      status.setAttribute("role", "button");
+      status.setAttribute("tabindex", "0");
+      status.setAttribute("aria-label", "Open account setup and free allowance guide");
+      const openGuide = () => new DocumentationModal(this.plugin.app, this.docs).open();
+      this.plugin.registerDomEvent(status, "click", openGuide);
+      this.plugin.registerDomEvent(status, "keydown", event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); openGuide(); } });
+      const state = () => (this.plugin as Plugin & { settings: Record<string, any> }).settings;
+      const update = () => { status.style.display = state()?.billingAccountLinked && state()?.billingAccessToken ? "none" : ""; };
+      update();
+      this.plugin.registerInterval(window.setInterval(update, 1000));
+      if (!state()?.billingAccountLinked && !state()?.billingOnboardingSeen) {
+        state().billingOnboardingSeen = true;
+        void this.plugin.saveData(state()).then(openGuide).catch(() => { state().billingOnboardingSeen = false; });
+      }
+    });
     this.instrumentFutureCommands(addCommand);
   }
 

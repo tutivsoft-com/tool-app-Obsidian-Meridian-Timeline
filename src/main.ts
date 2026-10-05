@@ -1,4 +1,4 @@
-import { reserveNative, renderNativePacks, jobId } from "./native-operations";
+import { reserveNative, renderNativePacks, jobId, recoverNative } from "./native-operations";
 import { ItemView, Modal, Notice, Plugin, PluginSettingTab, Setting, TFile, WorkspaceLeaf } from "obsidian";
 import { consumeTimelineUse, generateDeviceId, openCheckout, retryPendingSpendEvents, syncPurchasedUses } from "./billing";
 import { addBillingAccountSettings } from "./constance-account";
@@ -38,6 +38,7 @@ export default class MeridianTimelinePlugin extends Plugin {
     this.support.start();
     const saved = await this.loadData() as Partial<TimelineSettings> | null;
     this.settings = { ...DEFAULT_SETTINGS, ...saved, settingsMode: saved?.settingsMode === "advanced" ? "advanced" : "simple", eraLabels: { ...DEFAULT_SETTINGS.eraLabels, ...(saved?.eraLabels ?? {}) }, cache: saved?.cache ?? {}, namedViews: saved?.namedViews ?? [] };
+    await recoverNative({app:this.app,settings:this.settings,persistNative:()=>this.saveSettings()});
     if (!this.settings.constanceDeviceId) { this.settings.constanceDeviceId = generateDeviceId(); await this.saveSettings(); }
     this.registerView(VIEW_TYPE_MERIDIAN, (leaf) => { this.view = new MeridianTimelineView(leaf, this); return this.view; });
     this.addRibbonIcon("clock-3", "Open Meridian Timeline", () => void this.activateView());
@@ -101,10 +102,15 @@ export default class MeridianTimelinePlugin extends Plugin {
     try { return await operation; } finally { if (this.scanInFlight === operation) this.scanInFlight = null; }
   }
   private async runScan(onProgress: (done: number, total: number) => void): Promise<TimelineScanResult> {
+    if(this.preservedSnapshot && !this.preservedSnapshot.revealed) {
+      const retried=await this.revealSnapshot();
+      if(!retried)throw new Error("Timeline confirmation pending. Reconnect or add credits, then retry.");
+      return retried;
+    }
     const controller = new AbortController(); this.scanController = controller;
     try {
       const files = this.app.vault.getMarkdownFiles().filter((file) => !ignoredPath(file.path, this.settings.ignoredFolders, this.settings.ignoredPatterns));
-      if(!this.settings.billingAccountLinked && files.length>20)throw new Error("Guest timeline preview supports up to 20 notes. Choose a smaller scope using ignored folders, then keep the preview open through sign-in.");
+      if(!this.settings.billingAccountLinked || !this.settings.billingAccessToken)throw new Error("Connect your account in plugin settings to create a timeline using your free allowance.");
       if(files.length>2000)throw new Error("Select a smaller timeline scope (maximum 2,000 notes per bounded local run).");
       const source=JSON.stringify(files.map(f=>[f.path,f.stat.mtime,f.stat.size]));
       const hash = settingsHash(this.settings); const events: TimelineEvent[] = []; const review: CachedNote["review"] = [];
@@ -122,7 +128,9 @@ export default class MeridianTimelinePlugin extends Plugin {
       // Meter only after the scan has completed successfully. The in-flight
       // promise above coalesces duplicate opens/refreshes into one operation.
       this.preservedSnapshot={id:jobId(),source,result,notes:files.length,revealed:false};
-      return {events:result.events.slice(0,3),review:result.review.slice(0,2)};
+      const authorized=await this.revealSnapshot();
+      if(!authorized)throw new Error("Timeline authorization pending. Reconnect or add credits, then retry the same snapshot.");
+      return authorized;
     } finally {
       if (this.scanController === controller) this.scanController = null;
     }
@@ -151,7 +159,7 @@ export class MeridianTimelineView extends ItemView {
     try {
       const result = await this.plugin.scan((done, total) => this.showScanMessage(`Scanning notes: ${done}/${total}`));
       this.events = result.events; this.review = result.review; await this.plugin.saveSettings(); this.renderEvents();
-      this.showScanMessage(`Limited timeline preview. Keep this view open through sign-in/verification, then reveal the exact full snapshot without rescanning.`);
+      this.showScanMessage(`Timeline ready. Your lifetime free allowance is used first, then purchased credits; viewing this snapshot again uses no extra credits.`);
     } catch (error) { this.showScanMessage(error instanceof Error ? error.message : "Timeline scan failed."); }
   }
   fitAll(): void { this.zoom = 1; this.renderEvents(); }
@@ -159,7 +167,7 @@ export class MeridianTimelineView extends ItemView {
   private renderShell(): void {
     const root = this.contentEl; root.empty(); root.addClass("meridian-root");
     const heading = root.createDiv("meridian-header"); const title = heading.createDiv(); title.createEl("h1", { text: "Meridian Timeline" }); title.createEl("p", { text: "A local, readable chronology of your notes." });
-    const actions = heading.createDiv("meridian-actions"); actions.createEl("button",{text:"Reveal exact full timeline"}).addEventListener("click",()=>void this.plugin.revealSnapshot().then(result=>{if(result){this.events=result.events;this.review=result.review;this.renderEvents();this.showScanMessage("Full snapshot authorized once. Viewing and saving this same snapshot are free.");}})); actions.createEl("button", { text: "Refresh" }).addEventListener("click", () => void this.loadTimeline(true)); actions.createEl("button", { text: "Fit all" }).addEventListener("click", () => this.fitAll()); actions.createEl("button", { text: "Zoom −" }).addEventListener("click", () => { this.zoom = Math.max(.5, this.zoom / 1.25); this.renderEvents(); }); actions.createEl("button", { text: "Zoom +" }).addEventListener("click", () => { this.zoom = Math.min(8, this.zoom * 1.25); this.renderEvents(); }); actions.createEl("button", { text: "Focus selected" }).addEventListener("click", () => this.focusSelected()); actions.createEl("button", { text: "Save view" }).addEventListener("click", () => this.saveNamedView());
+    const actions = heading.createDiv("meridian-actions");  actions.createEl("button", { text: "Refresh" }).addEventListener("click", () => void this.loadTimeline(true)); actions.createEl("button", { text: "Fit all" }).addEventListener("click", () => this.fitAll()); actions.createEl("button", { text: "Zoom −" }).addEventListener("click", () => { this.zoom = Math.max(.5, this.zoom / 1.25); this.renderEvents(); }); actions.createEl("button", { text: "Zoom +" }).addEventListener("click", () => { this.zoom = Math.min(8, this.zoom * 1.25); this.renderEvents(); }); actions.createEl("button", { text: "Focus selected" }).addEventListener("click", () => this.focusSelected()); actions.createEl("button", { text: "Save view" }).addEventListener("click", () => this.saveNamedView());
     this.renderControls();
     const info = root.createDiv("meridian-info"); info.setText("Exact dates are solid, approximate dates are dashed, and uncertain dates are marked with a question badge. Click an event to open its source note.");
     this.viewport = root.createDiv("meridian-viewport"); this.viewport.setAttribute("role", "region"); this.viewport.setAttribute("aria-label", "Interactive timeline"); this.eventLayer = this.viewport.createDiv("meridian-event-layer");
@@ -208,9 +216,9 @@ export class MeridianSettingTab extends PluginSettingTab {
     new Setting(containerEl).setName("Ignored folders").setDesc("Comma-separated vault-relative folders.").addText((text) => text.setValue(this.plugin.settings.ignoredFolders.join(", ")).onChange(async (value) => { this.plugin.settings.ignoredFolders = value.split(",").map((item) => item.trim()).filter(Boolean); await this.plugin.saveSettings(); }));
     if (advanced) new Setting(containerEl).setName("Ignored note patterns").setDesc("Optional regular expressions matched against vault paths.").addTextArea((text) => text.setValue(this.plugin.settings.ignoredPatterns.join("\n")).onChange(async (value) => { this.plugin.settings.ignoredPatterns = value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean); await this.plugin.saveSettings(); }));
     if (advanced) new Setting(containerEl).setName("Maximum events").setDesc("Limit rendered events to keep large vaults responsive. 5,000 is recommended; Review still reports all scanned notes.").addDropdown((dropdown) => dropdown.addOptions({ [String(this.plugin.settings.maxEvents)]: `${this.plugin.settings.maxEvents.toLocaleString()} · current`, "1000": "1,000 · lighter", "5000": "5,000 · recommended", "10000": "10,000 · large vault", "50000": "50,000 · demanding" }).setValue(String(this.plugin.settings.maxEvents)).onChange(async (value) => { this.plugin.settings.maxEvents = Number(value); await this.plugin.saveSettings(); }));
-    new Setting(containerEl).setName("Billing").setHeading(); containerEl.createEl("p",{text:"One lifetime starter allowance, up to five successful snapshots. Full reveal consumes one native unit; viewing or saving that immutable snapshot does not charge again. Exact free/purchased split is confirmed by Constance."});
+    new Setting(containerEl).setName("Billing").setHeading(); containerEl.createEl("p",{text:"Connected, verified accounts receive 5 lifetime timeline credits. Each credit covers up to 20 notes; larger timelines use more credits (maximum 2,000 notes per local scan). Creating a timeline uses the account free allowance first, then purchased credits; viewing or saving that immutable snapshot does not charge again. Constance confirms the remaining allowance."});
     const balanceSummary = containerEl.createEl("p", { cls: "meridian-billing-summary", attr: { role: "status", "aria-live": "polite" } });
-    const renderBalanceSummary = () => balanceSummary.setText(`Purchased timeline uses: ${Math.max(0, this.plugin.settings.purchasedUses).toLocaleString()}`);
+    const renderBalanceSummary = () => balanceSummary.setText(!this.plugin.settings.billingAccountLinked || !this.plugin.settings.billingAccessToken ? "Create an account or sign in, then Connect to activate your lifetime free allowance and confirm your balance." : `Purchased timeline uses: ${Math.max(0, this.plugin.settings.purchasedUses).toLocaleString()}`);
     this.plugin.billingSummaryRefresh = renderBalanceSummary;
     renderBalanceSummary();
     addBillingAccountSettings(containerEl, { state: this.plugin.settings, appId: "meridian-timeline", installationId: this.plugin.settings.constanceDeviceId, syncBalance: () => syncPurchasedUses(this.plugin), persist: () => this.plugin.saveSettings(), refresh: () => this.display() });

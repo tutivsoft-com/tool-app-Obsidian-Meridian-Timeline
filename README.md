@@ -1,20 +1,16 @@
 # Meridian Timeline
 
-Version: 3.4.38
+Version: 3.4.44. Validated for publication; release pending.
 
 ## Current purchase behavior
 
 Purchase settings load the current public product catalog from Constance. Each available offer supplies its exact Paddle price ID, native-unit grant, unit name, and formatted amount. The client displays backend-provided amounts, enables only offers marked available, and submits the selected price ID through authenticated checkout with quantity one. Existing account balances and granted credits remain associated with the account.
 
-## Preview and lifetime allowance
+## Account lifetime allowance
 
-Guests see a bounded preview held only in memory. Keep the originating window open through registration, email verification and sign-in, then retry that exact result without regeneration. Guests cannot save, apply, export or queue useful output. Closing the preview or restarting loses unrevealed guest content.
+5 timeline_operations lifetime per account. max(1, ceil(notes / 20)) units per completed timeline operation.
 
-Constance authorizes metered operations using this app’s native billing unit. The plugin checks current account entitlements and live purchase availability through Constance; each operation follows its documented reserve/commit or quote/confirmation flow.
-
-A bounded timeline snapshot covers up to twenty notes. Full snapshot reveal consumes once; viewing or saving that immutable snapshot does not charge again. Guest scope is limited to twenty notes. File changes prompt explicit refresh rather than automatic useful completion.
-
-Useful local writes follow durable reserve -> write -> verify -> commit. Full reveal commits before showing complete content. Unknown writes retain their journal for status/output reconciliation; they are never blindly refunded or replayed. Billing sends account/install identity, native dimensions, and source/result digests; it never sends note content.
+New operations use authenticated account billing with free units first, then purchased remainder. Native operations preserve reserve, write, verify and commit. No separate reveal or split-confirmation gate is required. Meaningful file/scope review remains.
 
 ## Current settings
 
@@ -50,7 +46,7 @@ Meridian reads and parses notes locally through Obsidian’s vault APIs and does
 
 MIT. See [LICENSE](LICENSE).
 
-## Workflow defaults (v3.4.38)
+## Workflow defaults
 
 Meridian opens the read-only timeline scan directly. It does not write to notes, so there is no edit approval step.
 
