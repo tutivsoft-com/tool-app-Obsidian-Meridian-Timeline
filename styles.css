@@ -7,11 +7,13 @@
 .meridian-controls input, .meridian-controls select { min-height: 30px; max-width: 220px; }
 .meridian-controls label { color: var(--text-muted); font-size: .9em; }
 .meridian-info, .meridian-status { color: var(--text-muted); font-size: .88em; margin: 8px 0; }
-.meridian-viewport { overflow: auto; min-height: 265px; border: 1px solid var(--background-modifier-border); border-radius: 8px; background: var(--background-secondary); }
-.meridian-event-layer { position: relative; min-width: 900px; background: repeating-linear-gradient(90deg, transparent 0, transparent calc(16.666% - 1px), var(--background-modifier-border) calc(16.666% - 1px), var(--background-modifier-border) 16.666%); }
+.meridian-viewport { overflow: auto; min-height: 265px; max-height: 55vh; border: 1px solid var(--background-modifier-border); border-radius: 8px; background: var(--background-secondary); }
+.meridian-event-layer { position: relative; min-width: 0; background: repeating-linear-gradient(90deg, transparent 0, transparent calc(16.666% - 1px), var(--background-modifier-border) calc(16.666% - 1px), var(--background-modifier-border) 16.666%); }
 .meridian-axis { position: absolute; top: 8px; left: 0; right: 0; height: 28px; border-bottom: 1px solid var(--background-modifier-border); }
+.meridian-tick:first-child { transform: none; }
+.meridian-tick:last-child { transform: translateX(-100%); }
 .meridian-tick { position: absolute; transform: translateX(-50%); color: var(--text-muted); font-size: .78em; }
-.meridian-event { position: absolute; min-height: 38px; overflow: hidden; text-align: left; border: 1px solid var(--interactive-accent); border-radius: 6px; background: color-mix(in srgb, var(--interactive-accent) 18%, var(--background-primary)); padding: 6px 8px; cursor: pointer; white-space: nowrap; text-overflow: ellipsis; }
+.meridian-event { box-sizing: border-box; position: absolute; min-height: 38px; overflow: hidden; text-align: left; border: 1px solid var(--interactive-accent); border-radius: 6px; background: color-mix(in srgb, var(--interactive-accent) 18%, var(--background-primary)); padding: 6px 8px; cursor: pointer; white-space: nowrap; text-overflow: ellipsis; }
 .meridian-event:hover, .meridian-event:focus-visible { background: color-mix(in srgb, var(--interactive-accent) 32%, var(--background-primary)); outline: 2px solid var(--interactive-accent); }
 .meridian-event-title { overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
 .meridian-approximate { border-style: dashed; background: color-mix(in srgb, var(--color-orange) 20%, var(--background-primary)); }
@@ -31,3 +33,71 @@
 .meridian-preview-approx { border-style: dashed; }
 .meridian-preview-uncertain { border-color: var(--text-warning); }
 @media (max-width: 700px) { .meridian-header { flex-direction: column; } .meridian-controls input[type="search"] { min-width: 100%; max-width: none; } }
+
+/* Shared settings presentation. Colors describe purpose; text labels carry meaning. */
+.ui-settings-layout {
+  --ui-billing: #7656bb;
+  --ui-feature: #376db1;
+  --ui-key: #087f8c;
+  container-type: inline-size;
+  font-family: var(--font-interface);
+  line-height: 1.5;
+}
+.theme-dark .ui-settings-layout { --ui-billing: #b5a0ed; --ui-feature: #88b6ee; --ui-key: #71cbd3; }
+.ui-settings-layout .ui-settings-title { font-size: 1.35em; margin: 0 0 24px; font-weight: 650; }
+.ui-settings-layout .ui-settings-section { margin: 0 0 24px; }
+.ui-settings-layout .ui-section-heading { font-size: 1.05em; font-weight: 650; margin: 0 0 10px; padding: 0 4px; line-height: 1.4; }
+.ui-settings-layout .ui-section-billing > .ui-section-heading { color: var(--ui-billing); }
+.ui-settings-layout .ui-section-feature > .ui-section-heading { color: var(--ui-feature); }
+.ui-settings-layout .ui-settings-card { background: var(--background-secondary); border: 1px solid var(--background-modifier-border); border-radius: 12px; padding: 0 18px; overflow-wrap: anywhere; }
+.ui-settings-layout .ui-section-billing > .ui-settings-card { border-inline-start: 3px solid var(--ui-billing); }
+.ui-settings-layout .ui-settings-card > .setting-item { background: transparent; border: 0; border-radius: 0; margin: 0; padding: 16px 0; gap: 24px; }
+.ui-settings-layout .ui-settings-card > .setting-item ~ .setting-item { border-top: 1px solid var(--background-modifier-border); }
+.ui-settings-layout .setting-item-info { flex: 1 1 55%; min-width: 0; margin: 0; }
+.ui-settings-layout .setting-item-name { font-size: var(--font-ui-small); font-weight: 550; line-height: 1.5; }
+.ui-settings-layout .setting-item-description { font-size: var(--font-ui-smaller); color: var(--text-muted); margin-top: 4px; line-height: 1.5; }
+.ui-settings-layout .setting-item-control { flex: 0 1 42%; min-width: 0; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.ui-settings-layout .setting-item-control input:not([type=checkbox]):not([type=range]),
+.ui-settings-layout .setting-item-control select, .ui-settings-layout .setting-item-control textarea { width: 100%; max-width: 260px; min-width: 0; font: inherit; }
+.ui-settings-layout .setting-item-control textarea { min-height: 84px; resize: vertical; }
+.ui-settings-layout .setting-item-control button { max-width: 100%; height: auto; min-height: 30px; white-space: normal; line-height: 1.4; padding: 6px 12px; }
+.ui-settings-layout .ui-key-setting { border-inline-start: 3px solid var(--ui-key) !important; padding-inline-start: 12px !important; }
+.ui-settings-layout .ui-key-badge { display: inline-block; font-size: 10px; font-weight: 650; color: var(--ui-key); border: 1px solid currentColor; border-radius: 4px; padding: 1px 5px; margin-inline-start: 8px; vertical-align: middle; }
+.ui-settings-layout .ui-account-intro { padding: 16px 0; border-bottom: 1px solid var(--background-modifier-border); }
+.ui-settings-layout .ui-account-intro h4 { font-size: var(--font-ui-small); font-weight: 550; margin: 0 0 6px; }
+.ui-settings-layout .ui-account-intro p, .ui-settings-layout .ui-section-note,
+.ui-settings-layout .constance-account-status, .ui-settings-layout .ui-billing-summary,
+.ui-settings-layout .ui-billing-packs > p { font-size: var(--font-ui-smaller); line-height: 1.5; color: var(--text-muted); margin: 12px 0; }
+.ui-settings-layout .ui-account-intro p { margin: 6px 0; }
+.ui-settings-layout details { font-size: var(--font-ui-smaller); margin: 8px 0; }
+.ui-settings-layout summary { cursor: pointer; padding: 4px 0; font-weight: 550; }
+.ui-settings-layout summary:focus-visible { outline: 2px solid var(--interactive-accent); outline-offset: 3px; }
+.ui-settings-layout .ui-billing-packs .setting-item { border-top: 1px solid var(--background-modifier-border); padding: 14px 0; background: transparent; border-radius: 0; }
+@container (max-width: 520px) {
+  .ui-settings-layout .ui-settings-card > .setting-item, .ui-settings-layout .ui-billing-packs .setting-item { flex-direction: column; align-items: stretch; gap: 10px; }
+  .ui-settings-layout .setting-item-control { flex-basis: auto; width: 100%; justify-content: flex-start; }
+  .ui-settings-layout .setting-item-control input:not([type=checkbox]):not([type=range]), .ui-settings-layout .setting-item-control textarea, .ui-settings-layout .setting-item-control select { max-width: 100%; }
+}
+
+
+/* Timeline cards retain text labels so color is never the only distinction. */
+.meridian-root { font-family: var(--font-interface); }
+.meridian-header { flex-direction: column; gap: 8px; }
+.meridian-header h1 { color: var(--text-normal); font-weight: 650; letter-spacing: -.02em; }
+.meridian-header p { margin-bottom: 0; }
+.meridian-actions { gap: 6px; }
+.meridian-actions button { font-family: inherit; font-size: .85em; }
+.meridian-summary { padding: 8px 10px; margin: 8px 0; border-radius: 6px; background: color-mix(in srgb, var(--color-blue) 10%, var(--background-secondary)); color: var(--text-normal); font-size: .85em; overflow-wrap: anywhere; }
+.meridian-info { line-height: 1.6; }
+.meridian-event { --event-color: var(--color-blue); min-height: 54px; border-color: var(--event-color); border-left: 4px solid var(--event-color); background: color-mix(in srgb, var(--event-color) 12%, var(--background-primary)); color: var(--text-normal); display: flex; flex-direction: column; justify-content: center; gap: 4px; box-shadow: 0 2px 5px rgb(0 0 0 / 6%); }
+.meridian-event:hover, .meridian-event:focus-visible { background: color-mix(in srgb, var(--event-color) 24%, var(--background-primary)); outline-color: var(--event-color); }
+.meridian-span { --event-color: var(--color-green); }
+.meridian-approximate { --event-color: var(--color-orange); }
+.meridian-uncertain { --event-color: var(--color-yellow); }
+.meridian-modified { --event-color: var(--color-purple); }
+.meridian-event-title { display: block; width: 100%; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: .95em; padding-right: 12px; }
+.meridian-event-date { display: block; width: 100%; font-size: .8em; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.meridian-event .meridian-badge { position: absolute; top: 5px; right: 5px; margin: 0; }
+.meridian-controls input, .meridian-controls select { max-width: 100%; font-family: inherit; }
+.meridian-controls select[aria-label="Individual note timeline"] { width: 100%; }
+.meridian-status { line-height: 1.5; overflow-wrap: anywhere; }

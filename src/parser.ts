@@ -1,3 +1,5 @@
+import { sourceWithoutTimeline } from "./timeline-output.ts";
+import { diagnostics } from "./diagnostics.ts";
 import type { ParseResult, ParsedDate, ReviewItem, TimelineEvent } from "./types";
 
 const MONTHS: Record<string, number> = {
@@ -126,7 +128,7 @@ function tagsFor(frontmatter: Record<string, unknown>, body: string): string[] {
 }
 
 function makeEvent(path: string, title: string, tags: string[], raw: string, start: ParsedDate, end: ParsedDate | null, property?: string, heading?: string, block?: string): TimelineEvent {
-  const openEnded = !end;
+  const openEnded = !end && property === "start";
   const spanEnd = end?.timestamp ?? start.timestamp;
   const uncertain = start.precision === "unknown" || (end ? end.precision === "unknown" : false);
   const approximate = start.approximate || Boolean(end?.approximate) || start.precision === "year" || start.precision === "decade" || start.precision === "era";
@@ -134,12 +136,13 @@ function makeEvent(path: string, title: string, tags: string[], raw: string, sta
     id: stableId([path, property ?? "content", raw, start.timestamp, spanEnd, heading ?? "", block ?? ""].join("|")),
     sourcePath: path, title, heading, block, start: start.timestamp, end: spanEnd,
     startLabel: start.label, endLabel: end?.label, precision: start.precision,
-    kind: uncertain ? "uncertain" : openEnded ? (approximate ? "approximate" : "point") : (approximate ? "approximate" : "span"),
+    kind: uncertain ? "uncertain" : !end ? (approximate ? "approximate" : "point") : (approximate ? "approximate" : "span"),
     approximate, uncertain, openEnded, sourceProperty: property, tags, folder: folderFor(path),
   };
 }
 
 export function parseNote(path: string, source: string, dateProperties: string[], contentPatterns: string[] = [], eras: Record<string, number> = {}): ParseResult {
+  source = sourceWithoutTimeline(source);
   const { values, body } = parseFrontmatter(source);
   const title = titleFor(path, values);
   const tags = tagsFor(values, body);
@@ -170,16 +173,22 @@ export function parseNote(path: string, source: string, dateProperties: string[]
       events.push(makeEvent(path, title, tags, `${clean(candidates[0].value)}-${clean(endValue)}`, structuredStart, structuredEnd, candidates[0].property));
     }
   }
-  const matches = [...body.matchAll(/(?:\b(?:on|from|to|in|circa|around)\s+)?(\d{4}-\d{2}-\d{2}|\d{4}-\d{2}|\d{4}s|\d{4}|\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{1,2}\s+[A-Za-z]+\s+\d{1,4}|[A-Za-z]+\s+\d{1,2},?\s+\d{1,4})/gi)];
-  for (const match of matches.slice(0, 50)) {
-    if (structuredStart && Math.abs((match.index ?? 0) - body.indexOf(clean(candidates[0]?.value))) < 4) continue;
+  const matches = [...body.matchAll(/(?:\b(?:on|from|to|in|circa|around)[ \t]+)?(\d{4}-\d{2}-\d{2}|\d{4}-\d{2}|\d{4}s|\d{4}|\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{1,2}[ \t]+[A-Za-z]+[ \t]+\d{1,4}|[A-Za-z]+[ \t]+\d{1,2},?[ \t]+\d{1,4})/gi)];
+  for (const match of matches) {
     const parsed = parseDateValue(match[1], eras);
     if (!parsed) continue;
     const start = match.index ?? 0;
     const near = body.slice(start, start + 120);
     const range = near.match(/^(?:[^\n]*?)(?:-|–|—|to)\s*(\d{4}-\d{2}-\d{2}|\d{4}-\d{2}|\d{4}s|\d{4})/i);
     const end = range ? parseDateValue(range[1], eras) : null;
-    events.push(makeEvent(path, title, tags, match[0], parsed, end, undefined, headingAt(body, start), `line:${body.slice(0, start).split(/\r?\n/).length}`));
+    const lineStart = body.lastIndexOf("\n", start - 1) + 1;
+    const lineEnd = body.indexOf("\n", start);
+    const line = body.slice(lineStart, lineEnd < 0 ? undefined : lineEnd).trim();
+    const milestone = line.match(/^\d{4}-\d{2}-\d{2}\s+[—–-]\s+(.+)$/)?.[1];
+    const event = makeEvent(path, milestone || title, tags, match[0], parsed, end, undefined, headingAt(body, start), `line:${source.slice(0, source.length - body.length + start).split(/\r?\n/).length - 1}`);
+    event.sourceLine = source.slice(0, source.length - body.length + start).split(/\r?\n/).length - 1;
+    event.description = line;
+    events.push(event);
   }
   for (const pattern of contentPatterns) {
     try {
@@ -190,19 +199,23 @@ export function parseNote(path: string, source: string, dateProperties: string[]
         if (parsed) events.push(makeEvent(path, title, tags, raw, parsed, null, "content", headingAt(body, match.index ?? 0), `line:${body.slice(0, match.index ?? 0).split(/\r?\n/).length}`));
         else review.push({ path, title, reason: "unparseable", raw, detail: `Content pattern “${pattern}” matched text that is not a supported date.` });
       }
-    } catch { review.push({ path, title, reason: "unparseable", detail: `Invalid content pattern “${pattern}”.` }); }
+    } catch (caughtError1) {
+diagnostics.failure("parser.caught_2", caughtError1); review.push({ path, title, reason: "unparseable", detail: `Invalid content pattern “${pattern}”.` }); }
   }
-  const unique = [...new Map(events.map((event) => [event.id, event])).values()];
+  // A note date repeated by a body milestone is metadata for that event.
+  const bodyEvents = events.filter(event => event.sourceLine !== undefined);
+  const unique = [...new Map(events.filter(event => !(event.sourceProperty === "date" && bodyEvents.some(bodyEvent => bodyEvent.start === event.start && bodyEvent.end === event.end))).map((event) => [event.id, event])).values()];
   if (unique.length === 0 && review.length === 0) review.push({ path, title, reason: "undated", detail: "No configured date property or supported date in content." });
-  if (unique.length > 1 && structuredStart && unique.some((event) => event.start !== structuredStart?.timestamp)) {
+  if (unique.length > 1 && structuredStart && unique.some((event) => event.title === title && event.start !== structuredStart?.timestamp)) {
     review.push({ path, title, reason: "conflicting", detail: "Frontmatter and content contain different dates; both are shown." });
-    unique.forEach((event) => { event.uncertain = true; event.kind = "uncertain"; });
+    unique.filter(event => event.title === title).forEach((event) => { event.uncertain = true; event.kind = "uncertain"; });
   }
   return { events: unique, review };
 }
 
 export function settingsHash(settings: Pick<import("./types").TimelineSettings, "dateProperties" | "contentPatterns" | "eraLabels">): string {
   return stableId(JSON.stringify({
+    parserRevision: 2,
     dateProperties: settings.dateProperties,
     contentPatterns: settings.contentPatterns,
     eraLabels: settings.eraLabels,

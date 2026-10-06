@@ -1,3 +1,4 @@
+import { diagnostics } from "./diagnostics.ts";
 import type { TimelineEvent } from "./types";
 
 export interface FilterState { search: string; folder: string; tag: string; kind: string; uncertainty: string; from: string; to: string; }
@@ -17,5 +18,6 @@ export function matchesFilters(event: TimelineEvent, filters: FilterState): bool
 export function ignoredPath(path: string, folders: string[], patterns: string[]): boolean {
   const normalized = path.replace(/\\/g, "/");
   if (folders.some((folder) => normalized === folder || normalized.startsWith(`${folder.replace(/\/$/, "")}/`))) return true;
-  return patterns.some((pattern) => { try { return new RegExp(pattern, "i").test(normalized); } catch { return false; } });
+  return patterns.some((pattern) => { try { return new RegExp(pattern, "i").test(normalized); } catch (caughtError1) {
+diagnostics.failure("filter.caught_2", caughtError1); return false; } });
 }

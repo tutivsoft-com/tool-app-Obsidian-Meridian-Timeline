@@ -1,7 +1,10 @@
 import type { TimelineSettings } from "./types";
 
 export const DEFAULT_SETTINGS: TimelineSettings = {
+  appendTimelineMarkdown: true,
+  saveTimelineJson: false,
   settingsMode: "simple",
+  debugLogging: false,
   dateProperties: ["date", "start", "end", "created", "modified"],
   contentPatterns: [],
   eraLabels: { "early modern": 1500, "industrial revolution": 1760, "world war i": 1914, "world war ii": 1939 },

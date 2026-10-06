@@ -2,7 +2,11 @@ export type EventKind = "point" | "span" | "approximate" | "uncertain";
 export type GroupBy = "none" | "folder" | "tag" | "property";
 
 export interface TimelineSettings {
+  appendTimelineMarkdown: boolean;
+  saveTimelineJson: boolean;
+  generatedNoteStats?: Record<string, { mtime: number; size: number; sourceMtime: number }>;
   settingsMode: "simple" | "advanced";
+  debugLogging?: boolean;
   dateProperties: string[];
   contentPatterns: string[];
   eraLabels: Record<string, number>;
@@ -29,7 +33,11 @@ export interface TimelineSettings {
 }
 
 export interface NamedView {
+  /** null means the whole vault; absent preserves legacy filter-only views. */
+  scopeRoots?: string[] | null;
+  timelineMode?: "note" | "combined" | "per-note";
   name: string;
+  zoom?: number;
   search: string;
   folder: string;
   tag: string;
@@ -54,6 +62,8 @@ export interface TimelineEvent {
   title: string;
   heading?: string;
   block?: string;
+  /** Zero-based source line, including frontmatter. */
+  sourceLine?: number;
   start: number;
   end: number;
   startLabel: string;

@@ -1,60 +1,28 @@
 # Meridian Timeline
 
-Version: 3.4.44. Validated for publication; release pending.
+Build an interactive chronology from dates and event spans in Markdown notes, with optional file modified dates for combined timelines and saved Markdown/JSON outputs.
 
-## Current purchase behavior
+Current version: **3.4.60**.
 
-Purchase settings load the current public product catalog from Constance. Each available offer supplies its exact Paddle price ID, native-unit grant, unit name, and formatted amount. The client displays backend-provided amounts, enables only offers marked available, and submits the selected price ID through authenticated checkout with quantity one. Existing account balances and granted credits remain associated with the account.
+## First use
 
-## Account lifetime allowance
+Enable the plugin and use its settings page. Simple is the default settings mode; Advanced exposes optional configuration. Connect the account, then run Open timeline. Use Refresh timeline after editing source notes.
 
-5 timeline_operations lifetime per account. max(1, ceil(notes / 20)) units per completed timeline operation.
+Meridian scans supported configured date properties and patterns, builds a snapshot, then authorizes it before displaying the complete timeline. Filtering, grouping, zooming, opening source notes and saving named views operate on that snapshot. Markdown saving is enabled by default: individual timelines are appended to their source notes, while combined timelines are saved to a dedicated note. Optional companion JSON saving defaults off. Generated sections are excluded from later scans.
 
-New operations use authenticated account billing with free units first, then purchased remainder. Native operations preserve reserve, write, verify and commit. No separate reveal or split-confirmation gate is required. Meaningful file/scope review remains.
+## Account and processing
 
-## Current settings
+Processing is local. This plugin has no AI provider integration. Constance handles account and billing operations.
 
-Settings default to **Simple** and remember the selected mode. Simple contains everyday controls and account/billing. **Advanced** adds specialist preferences and diagnostics. This plugin runs locally without a managed AI provider. Connect a Constance account to refresh balances and authorize metered operations. Meridian does not encrypt note data.
+A completed timeline operation consumes max(1, ceil(included notes / 20)) units. Reservation and commitment authorize the immutable snapshot. Filtering an already authorized snapshot does not charge again. An unrevealed snapshot pending authorization stays in session memory for retry.
 
-## Constance account and usage
+Connect the existing Constance account in settings; registration can require email verification before signing in again. Billing account passwords are sent for authentication and are not persisted. Access/refresh session data and a stable installation identity are saved locally. Account free usage and purchased balance are determined by Constance; cached values and checkout return URLs do not create entitlement. Catalog displays current formatted names, prices, availability and exact price IDs. Unknown usage and checkout results retain their original identities for recovery.
 
-Use **Connect** with your Constance account. New users verify the emailed link, then connect again; existing verified users sign in. Passwords are not saved by Meridian. Constance owns the lifetime starter allowance, purchased balances, usage authorization, and checkout fulfillment. Reinstalling and reconnecting the same account does not reset its allowance. Usage and checkout retries reuse their original identifiers rather than starting a duplicate operation.
+## Diagnostics
 
-Meridian Timeline is a local-first Obsidian plugin that turns dated notes, eras, and historical spans into a readable interactive chronology. It keeps every displayed event connected to its source note.
+Help is available in settings and through Open documentation. Open plugin settings and Copy full debug log are command-palette fallbacks. Debug logging defaults off for a new installation; failures and full Error objects/stacks still appear in the local developer console. Timed information is enabled by the debug preference. The copyable diagnostic buffer keeps at most 1,000 summarized events and excludes raw error text, stacks, note text, paths and credentials. Full console exceptions can contain whatever the failed operation placed in its error. Logs are not uploaded automatically.
 
-## MVP features
-
-- Reads configurable frontmatter properties (`date`, `start`, `end`, `created`, and `modified` by default).
-- Parses ISO dates, month/day formats, years, decades, approximate dates, BC/BCE labels, and configurable era names.
-- Shows point events, spans, approximate dates, uncertain/conflicting dates, and a review list for undated or malformed notes.
-- Provides search, folder/tag/type/uncertainty filters, grouping by folder or tag, zoom, fit-all, and source navigation.
-- Caches parsed notes and invalidates only changed notes. Initial scans show progress and can be cancelled from the command palette. When notes change, select Refresh to update the timeline.
-- Saves named view configurations without modifying source notes.
-
-## Billing and usage
+## Documentation
 
 
-Authenticated entitlements and server usage claims determine balances. Current offer amounts, grants, descriptions, and availability come from Constance; Meridian displays only available offers and submits the selected exact price ID. Checkout uses quantity one and a persisted idempotency key, and restart recovery reuses that checkout identity. Reinstalling and reconnecting preserves the account's balance and free allowance. Note content stays in the vault.
-
-Open **Meridian Timeline: Open timeline** from the command palette. Configure properties, ignored folders, content patterns, and era labels in **Settings → Meridian Timeline**.
-
-## Privacy and threat model
-
-Meridian reads and parses notes locally through Obsidian’s vault APIs and does not use AI. Network activity is limited to the Constance entitlement sync, credit spend, and checkout flow described above; note content is never transmitted. Source notes are read-only. Parsed event data is cached in Obsidian plugin data and can include paths, titles, headings, tags, and timestamps; protect the local Obsidian profile accordingly. Ignored folders and path patterns provide an additional boundary for sensitive notes. A malformed note is isolated and reported in Review rather than stopping the scan.
-
-## License
-
-MIT. See [LICENSE](LICENSE).
-
-## Workflow defaults
-
-Meridian opens the read-only timeline scan directly. It does not write to notes, so there is no edit approval step.
-
-## Billing and credit feedback
-
-Constance authorizes metered operations using this app’s native billing unit. The plugin checks current account entitlements and live purchase availability through Constance; each operation follows its documented reserve/commit or quote/confirmation flow.
-
-
-## Manual installation
-
-Download `main.js`, `manifest.json`, and `styles.css` from the matching published release and place them in `.obsidian/plugins/meridian-timeline/`, then enable the plugin in Obsidian.
+License terms are in LICENSE.
