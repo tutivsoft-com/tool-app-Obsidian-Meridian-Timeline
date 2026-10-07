@@ -1,28 +1,67 @@
 # Meridian Timeline
 
-Build an interactive chronology from dates and event spans in Markdown notes, with optional file modified dates for combined timelines and saved Markdown/JSON outputs.
+Turn dated Obsidian notes into a navigable timeline you can save back to your vault.
 
-Current version: **3.4.60**.
+**Best for:** Obsidian users studying history, research chronology and dated project notes.
 
-## First use
+## Top 10 features
 
-Enable the plugin and use its settings page. Simple is the default settings mode; Advanced exposes optional configuration. Connect the account, then run Open timeline. Use Refresh timeline after editing source notes.
+1. Build timelines from supported note dates.
+2. Recognize date spans.
+3. Configure date properties and patterns.
+4. Filter by text, dates, tags or folders.
+5. Group timeline events.
+6. Zoom and fit the view.
+7. Open a source note at its event.
+8. Save named views.
+9. Save timelines as Markdown.
+10. Enable optional companion JSON saving.
 
-Meridian scans supported configured date properties and patterns, builds a snapshot, then authorizes it before displaying the complete timeline. Filtering, grouping, zooming, opening source notes and saving named views operate on that snapshot. Markdown saving is enabled by default: individual timelines are appended to their source notes, while combined timelines are saved to a dedicated note. Optional companion JSON saving defaults off. Generated sections are excluded from later scans.
+## Example workflow
 
-## Account and processing
+**Before:** Research events are scattered through several dated notes.
 
-Processing is local. This plugin has no AI provider integration. Constance handles account and billing operations.
+**After:** Build a combined timeline, filter it by topic and save it to a dedicated Markdown note.
 
-A completed timeline operation consumes max(1, ceil(included notes / 20)) units. Reservation and commitment authorize the immutable snapshot. Filtering an already authorized snapshot does not charge again. An unrevealed snapshot pending authorization stays in session memory for retry.
+## Pricing
 
-Connect the existing Constance account in settings; registration can require email verification before signing in again. Billing account passwords are sent for authentication and are not persisted. Access/refresh session data and a stable installation identity are saved locally. Account free usage and purchased balance are determined by Constance; cached values and checkout return URLs do not create entitlement. Catalog displays current formatted names, prices, availability and exact price IDs. Unknown usage and checkout results retain their original identities for recovery.
+A connected account includes 5 timeline units as a one-time lifetime allowance. Previous use counts toward that allowance.
 
-## Diagnostics
+| Pack | USD price | Included units |
+|---|---:|---:|
+| Starter | $2.00 | 50 timeline operations |
+| Standard | $4.00 | 150 timeline operations |
+| Pro | $8.00 | 450 timeline operations |
+| Ultimate | $14.00 | 1,200 timeline operations |
 
-Help is available in settings and through Open documentation. Open plugin settings and Copy full debug log are command-palette fallbacks. Debug logging defaults off for a new installation; failures and full Error objects/stacks still appear in the local developer console. Timed information is enabled by the debug preference. The copyable diagnostic buffer keeps at most 1,000 summarized events and excludes raw error text, stacks, note text, paths and credentials. Full console exceptions can contain whatever the failed operation placed in its error. Logs are not uploaded automatically.
+Packs are one-time purchases. Purchased units do not expire. Final tax and local currency are shown at checkout.
 
-## Documentation
+A timeline uses one unit per twenty included notes, rounded up. Filtering that timeline does not use another unit.
 
+## What to know
 
-License terms are in LICENSE.
+Timeline processing is local. Filtering an already authorized timeline does not consume another operation.
+
+---
+
+## Discover Meridian Timeline
+
+Whether you need to build timelines from supported note dates or recognize date spans, Meridian Timeline provides a focused workflow for Obsidian users studying history, research chronology and dated project notes.
+
+### Common questions
+
+**What can I use it for?**
+
+You can build timelines from supported note dates, filter by text, dates, tags or folders or group timeline events.
+
+**How do I get started?**
+
+Enable the plugin in Obsidian, open its settings and choose the action that fits your note. Connect your account for metered actions; the settings page shows your remaining allowance and available packs.
+
+### Search description
+
+Turn dated Obsidian notes into a navigable timeline you can save back to your vault. Designed for Obsidian users studying history, research chronology and dated project notes.
+
+### Related topics
+
+Obsidian timeline, dated note chronology, research timeline Markdown, note event navigation.
