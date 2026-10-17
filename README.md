@@ -68,6 +68,6 @@ Obsidian timeline, dated note chronology, research timeline Markdown, note event
 
 ## Release
 
-Version 3.4.66 is prepared for manual validation and publication.
+Version 3.4.66 was published on 17 October 2026. Its final Obsidian Community audit completed successfully. [Release assets](https://github.com/tutivsoft-com/tool-app-Obsidian-Meridian-Timeline/releases/tag/3.4.66).
 
 Basic app usage events are sent to https://atcdn.cyou without note contents. Account and purchase operations use Constance.
