@@ -1,3 +1,4 @@
+import { initializeMatomo } from "./matomo-plugin";
 import { appendTimeline, timelineMarkdown, timelineJson, timelineSourceText, modifiedEvent, GENERATED_NOTE, type TimelineMode } from "./timeline-output";
 import { selectedFiles, markdownFile, registerSelectionAction } from "./selection-scope";
 import { diagnostics } from "./diagnostics";
@@ -136,6 +137,7 @@ try {
   snapshotRevealed(): boolean { return this.preservedSnapshot?.revealed===true; }
 
   async onload(): Promise<void> {
+    initializeMatomo(this);
 let diagnosticStartupEnd: () => void = () => {};
 
 const diagnosticEnd2 = diagnostics?.start?.("main.onload") ?? (() => {});

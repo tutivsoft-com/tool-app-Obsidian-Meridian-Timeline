@@ -66,12 +66,8 @@ Turn dated Obsidian notes into a navigable timeline you can save back to your va
 
 Obsidian timeline, dated note chronology, research timeline Markdown, note event navigation.
 
-<!-- PORTFOLIO-METADATA:START -->
-## Repository metadata
+## Release
 
-Current source version: **3.4.62** (2026-10-16).
+Version 3.4.66 is prepared for manual validation and publication.
 
-[Architecture](architecture.md) · [AI provenance](ai_model.md) · [History](HISTORY.md) · [Contributors](CONTRIBUTORS.md) · [Manifest](rahul_manifest.yaml).
-
-This maintenance update synchronizes source version metadata and excludes generated junk. Build, runtime, store and deployment verification are separate.
-<!-- PORTFOLIO-METADATA:END -->
+Basic app usage events are sent to https://atcdn.cyou without note contents. Account and purchase operations use Constance.
