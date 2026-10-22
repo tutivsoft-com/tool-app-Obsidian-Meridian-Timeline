@@ -774,7 +774,7 @@ renderBalanceSummary();
 diagnosticStage42();
 
     const diagnosticStage43 = diagnostics?.start?.("settings.render.account") ?? (() => {});
-addBillingAccountSettings(containerEl, { state: this.plugin.settings, appId: "meridian-timeline", installationId: this.plugin.settings.constanceDeviceId, syncBalance: () => syncPurchasedUses(this.plugin), persist: () => this.plugin.saveSettings(), refresh: () => this.display() });
+addBillingAccountSettings(containerEl, { state: this.plugin.settings, appId: "meridian-timeline", appVersion: this.plugin.manifest.version, installationId: this.plugin.settings.constanceDeviceId, syncBalance: () => syncPurchasedUses(this.plugin), persist: () => this.plugin.saveSettings(), refresh: () => this.display() });
 diagnosticStage43();
 
     const diagnosticStage44 = diagnostics?.start?.("settings.render.catalog") ?? (() => {});
