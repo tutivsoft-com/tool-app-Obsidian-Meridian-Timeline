@@ -24,7 +24,7 @@ Uncertain older billing records are retained and are never replayed as new v2 ch
 
 Version 3.4.80: Timeline Markdown and JSON outputs, named views and restart recovery were improved. Allowance messages and post-scan balance refresh were corrected.
 
-Use the matching GitHub release for installation availability. Community directory review is separate from source validation.
+Obsidian Community release **3.4.80** requires Obsidian **1.5.0** or later. [GitHub release](https://github.com/tutivsoft-com/tool-app-Obsidian-Meridian-Timeline/releases/tag/3.4.80).
 
 ## Support
 
