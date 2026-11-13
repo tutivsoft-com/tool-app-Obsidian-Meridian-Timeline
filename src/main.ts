@@ -124,8 +124,18 @@ try {
 
     const snapshot=this.preservedSnapshot; if(!snapshot)return null;
     if(!snapshot.revealed) {
+      const billingState = this.settings as TimelineSettings & { operationJournal?: Array<{ event_id: string; state: string }> };
+      if (billingState.operationJournal?.some(item => item.event_id === snapshot.id && item.state === "denied")) snapshot.id = jobId();
       const authorization=await reserveNative({app:this.app,settings:this.settings,persistNative:()=>this.saveSettings()},"meridian-timeline",snapshot.id,snapshot.source,JSON.stringify(snapshot.result),{notes:snapshot.notes},true);
-      if(!authorization)return null; snapshot.revealed=true;
+      if (!authorization) {
+        if (billingState.operationJournal?.some(item => item.event_id === snapshot.id && item.state === "denied")) {
+          throw new Error("No timeline scan credits remain. Add scan credits, then select Refresh.");
+        }
+        return null;
+      }
+      snapshot.revealed=true;
+      try { await syncPurchasedUses(this); }
+      catch (error) { diagnostics?.failure?.("billing.refresh-after-timeline", error); }
     }
     return await (snapshot.result);
 
@@ -160,7 +170,7 @@ diagnosticStartupEnd = diagnostics?.start?.("startup.initialize") ?? (() => {});
     this.addCommand({ id: "fit-all-events", name: "Fit all timeline events", callback: () => this.view?.fitAll() });
     this.addCommand({ id: "cancel-scan", name: "Cancel timeline scan", callback: () => this.cancelScan() });
     this.addCommand({ id: "save-named-view", name: "Save current timeline view", callback: () => this.view?.saveNamedView() });
-    void diagnostics.guard("main.background_3", () => (retryPendingSpendEvents(this).then(() => syncPurchasedUses(this))));
+    if (this.settings.billingAccountLinked) void diagnostics.guard("main.background_3", () => (retryPendingSpendEvents(this).then(() => syncPurchasedUses(this))));
     this.addSettingTab(new MeridianSettingTab(this.app, this));
     this.support.showWelcome();
     this.registerEvent(this.app.vault.on("modify", (file) => {
@@ -307,8 +317,12 @@ const diagnosticAction7 = () => {
 }; return diagnostics?.run ? diagnostics.run("main.cancelScan", diagnosticAction7) : diagnosticAction7();
 }
   private invalidateAndRefresh(path: string): void {
-    if (this.outputInFlight) return;
     delete this.settings.cache[path];
+    if (this.outputInFlight || this.scanInFlight || !this.preservedSnapshot?.revealed) return;
+    const markdown = /\.md$/i.test(path);
+    const relevant = this.scopeRoots === null ? markdown : this.scopeRoots.some(root =>
+      path === root || markdown && path.startsWith(root + "/") || root.startsWith(path + "/"));
+    if (!relevant) return;
     this.view?.showScanMessage("Notes changed. Select Refresh to update the timeline (uses one scan).");
   }
   async scan(onProgress: (done: number, total: number) => void): Promise<TimelineScanResult> {
