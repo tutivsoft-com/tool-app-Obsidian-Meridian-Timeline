@@ -12,7 +12,8 @@ export function matchesFilters(event: TimelineEvent, filters: FilterState): bool
   if (filters.uncertainty === "uncertain" && !event.uncertain && !event.approximate) return false;
   const from = filters.from ? Date.parse(filters.from) : Number.NEGATIVE_INFINITY;
   const to = filters.to ? Date.parse(filters.to) : Number.POSITIVE_INFINITY;
-  return event.end >= from && event.start <= to;
+  const inclusiveEnd = /^\d{4}-\d{2}-\d{2}$/.test(filters.to) ? to + 86_400_000 - 1 : to;
+  return event.end >= from && event.start <= inclusiveEnd;
 }
 
 export function ignoredPath(path: string, folders: string[], patterns: string[]): boolean {

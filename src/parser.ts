@@ -9,7 +9,8 @@ const MONTHS: Record<string, number> = {
 };
 
 function utc(year: number, month = 0, day = 1): number {
-  return Date.UTC(year, month, day);
+  const date = new Date(0);
+  return date.setUTCFullYear(year, month, day);
 }
 
 function validDate(year: number, month: number, day: number): boolean {
@@ -42,8 +43,8 @@ export function parseDateValue(input: unknown, eras: Record<string, number> = {}
     const year = Number(unknownRaw[1]);
     return { timestamp: utc(year), label: text, precision: "unknown", approximate: true, year };
   }
-  const approximate = /^(?:about|around|circa|c\.?|ca\.?|~)\s*/i.test(text) || /\?\s*$/.test(text);
-  text = text.replace(/^(?:about|around|circa|c\.?|ca\.?|~)\s*/i, "").replace(/\?\s*$/, "").trim();
+  const approximate = /^(?:about|around|circa|ca\.?|c\.?|~)\s*/i.test(text) || /\?\s*$/.test(text);
+  text = text.replace(/^(?:about|around|circa|ca\.?|c\.?|~)\s*/i, "").replace(/\?\s*$/, "").trim();
   const eraKey = Object.keys(eras).find((key) => key.toLowerCase() === text.toLowerCase());
   if (eraKey) {
     const year = eras[eraKey];
@@ -101,11 +102,24 @@ function parseFrontmatter(source: string): { values: Record<string, unknown>; bo
   const match = source.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
   if (!match) return { values: {}, body: source };
   const values: Record<string, unknown> = {};
+  let tagList: string[] | undefined;
   for (const line of match[1].split(/\r?\n/)) {
+    if (!line.trim() || line.trimStart().startsWith("#")) continue;
+    const tag = tagList && line.match(/^\s*-\s+(.+?)\s*$/);
+    if (tag && tagList) {
+      tagList.push(clean(tag[1].replace(/\s+#.*$/, "")));
+      continue;
+    }
+    tagList = undefined;
     const item = line.match(/^([^:#][^:]*):\s*(.*)$/);
     if (!item) continue;
     const key = item[1].trim();
     const value = item[2].trim();
+    if (key === "tags" && (!value || value.startsWith("#"))) {
+      tagList = [];
+      values[key] = tagList;
+      continue;
+    }
     values[key] = value.startsWith("[") && value.endsWith("]") ? value.slice(1, -1).split(",").map((part) => part.trim()) : value;
   }
   return { values, body: source.slice(match[0].length) };
@@ -148,39 +162,34 @@ export function parseNote(path: string, source: string, dateProperties: string[]
   const tags = tagsFor(values, body);
   const events: TimelineEvent[] = [];
   const review: ReviewItem[] = [];
-  const candidates: Array<{ value: unknown; property: string }> = [];
   const startProperties = [...new Set(["start", "date", ...dateProperties.filter((property) => property !== "end")])];
-  let startValue: unknown;
-  let startProperty = "date";
-  for (const property of startProperties) {
-    if (values[property] === undefined) continue;
-    if (startValue === undefined) startValue = values[property];
-    const parsed = parseDateValue(values[property], eras);
-    if (parsed) { startValue = values[property]; startProperty = property; break; }
-    review.push({ path, title, reason: "unparseable", raw: clean(values[property]), detail: `Could not parse frontmatter property “${property}”.` });
-  }
-  const endValue = values.end;
-  if (startValue !== undefined) candidates.push({ value: startValue, property: startProperty });
   let structuredStart: ParsedDate | null = null;
-  let structuredEnd: ParsedDate | null = null;
-  if (candidates.length) {
-    const range = parseRange(candidates[0].value, eras);
-    structuredStart = range?.start ?? parseDateValue(candidates[0].value, eras);
-    structuredEnd = range?.end ?? (endValue === undefined ? null : parseDateValue(endValue, eras));
-    if (!structuredStart) review.push({ path, title, reason: "unparseable", raw: clean(candidates[0].value), detail: `Could not parse frontmatter property “${candidates[0].property}”.` });
-    else {
-      if (endValue !== undefined && !structuredEnd) review.push({ path, title, reason: "unparseable", raw: clean(endValue), detail: "Could not parse the end property." });
-      events.push(makeEvent(path, title, tags, `${clean(candidates[0].value)}-${clean(endValue)}`, structuredStart, structuredEnd, candidates[0].property));
+  for (const property of startProperties) {
+    const value = values[property];
+    if (value === undefined) continue;
+    const range = parseRange(value, eras);
+    structuredStart = range?.start ?? parseDateValue(value, eras);
+    if (!structuredStart) {
+      review.push({ path, title, reason: "unparseable", raw: clean(value), detail: `Could not parse frontmatter property “${property}”.` });
+      continue;
     }
+    const endValue = values.end;
+    const end = range?.end ?? parseDateValue(endValue, eras);
+    if (endValue !== undefined && !end) review.push({ path, title, reason: "unparseable", raw: clean(endValue), detail: "Could not parse the end property." });
+    events.push(makeEvent(path, title, tags, `${clean(value)}-${clean(endValue)}`, structuredStart, end, property));
+    break;
   }
-  const matches = [...body.matchAll(/(?:\b(?:on|from|to|in|circa|around)[ \t]+)?(\d{4}-\d{2}-\d{2}|\d{4}-\d{2}|\d{4}s|\d{4}|\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{1,2}[ \t]+[A-Za-z]+[ \t]+\d{1,4}|[A-Za-z]+[ \t]+\d{1,2},?[ \t]+\d{1,4})/gi)];
-  for (const match of matches) {
+  const dates = /(?:\b(?:on|from|to|in|circa|around)[ \t]+)?(\d{4}-\d{2}-\d{2}|\d{4}-\d{2}(?!\d)|\d{4}s|\d{4}|\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{1,2}[ \t]+[A-Za-z]+[ \t]+\d{1,4}|[A-Za-z]+[ \t]+\d{1,2},?[ \t]+\d{1,4})/gi;
+  let match: RegExpExecArray | null;
+  while ((match = dates.exec(body)) !== null) {
     const parsed = parseDateValue(match[1], eras);
     if (!parsed) continue;
     const start = match.index ?? 0;
-    const near = body.slice(start, start + 120);
-    const range = near.match(/^(?:[^\n]*?)(?:-|–|—|to)\s*(\d{4}-\d{2}-\d{2}|\d{4}-\d{2}|\d{4}s|\d{4})/i);
+    const rangeEnd = /[ \t]*(?:[-–—]|(?:to|through|until)\b)[ \t]*(\d{4}-\d{2}-\d{2}|\d{4}-\d{2}|\d{4}s|\d{4})\b/iy;
+    rangeEnd.lastIndex = dates.lastIndex;
+    const range = rangeEnd.exec(body);
     const end = range ? parseDateValue(range[1], eras) : null;
+    if (end) dates.lastIndex = rangeEnd.lastIndex;
     const lineStart = body.lastIndexOf("\n", start - 1) + 1;
     const lineEnd = body.indexOf("\n", start);
     const line = body.slice(lineStart, lineEnd < 0 ? undefined : lineEnd).trim();
@@ -215,7 +224,7 @@ diagnostics.failure("parser.caught_2", caughtError1); review.push({ path, title,
 
 export function settingsHash(settings: Pick<import("./types").TimelineSettings, "dateProperties" | "contentPatterns" | "eraLabels">): string {
   return stableId(JSON.stringify({
-    parserRevision: 2,
+    parserRevision: 3,
     dateProperties: settings.dateProperties,
     contentPatterns: settings.contentPatterns,
     eraLabels: settings.eraLabels,
