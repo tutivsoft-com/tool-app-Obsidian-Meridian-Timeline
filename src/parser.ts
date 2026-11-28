@@ -158,6 +158,8 @@ function makeEvent(path: string, title: string, tags: string[], raw: string, sta
 export function parseNote(path: string, source: string, dateProperties: string[], contentPatterns: string[] = [], eras: Record<string, number> = {}): ParseResult {
   source = sourceWithoutTimeline(source);
   const { values, body } = parseFrontmatter(source);
+  const bodyOffset = source.length - body.length;
+  const sourceLineAt = (index: number) => source.slice(0, bodyOffset + index).split(/\r?\n/).length - 1;
   const title = titleFor(path, values);
   const tags = tagsFor(values, body);
   const events: TimelineEvent[] = [];
@@ -182,9 +184,11 @@ export function parseNote(path: string, source: string, dateProperties: string[]
   const dates = /(?:\b(?:on|from|to|in|circa|around)[ \t]+)?(\d{4}-\d{2}-\d{2}|\d{4}-\d{2}(?!\d)|\d{4}s|\d{4}|\d{1,2}[/-]\d{1,2}[/-]\d{2,4}|\d{1,2}[ \t]+[A-Za-z]+[ \t]+\d{1,4}|[A-Za-z]+[ \t]+\d{1,2},?[ \t]+\d{1,4})/gi;
   let match: RegExpExecArray | null;
   while ((match = dates.exec(body)) !== null) {
+    const start = match.index;
+    if (/[\p{L}\p{N}_]$/u.test(body.slice(Math.max(0, start - 2), start)) ||
+        /^[\p{L}\p{N}_]/u.test(body.slice(dates.lastIndex, dates.lastIndex + 2))) continue;
     const parsed = parseDateValue(match[1], eras);
     if (!parsed) continue;
-    const start = match.index ?? 0;
     const rangeEnd = /[ \t]*(?:[-–—]|(?:to|through|until)\b)[ \t]*(\d{4}-\d{2}-\d{2}|\d{4}-\d{2}|\d{4}s|\d{4})\b/iy;
     rangeEnd.lastIndex = dates.lastIndex;
     const range = rangeEnd.exec(body);
@@ -194,8 +198,9 @@ export function parseNote(path: string, source: string, dateProperties: string[]
     const lineEnd = body.indexOf("\n", start);
     const line = body.slice(lineStart, lineEnd < 0 ? undefined : lineEnd).trim();
     const milestone = line.match(/^\d{4}-\d{2}-\d{2}\s+[—–-]\s+(.+)$/)?.[1];
-    const event = makeEvent(path, milestone || title, tags, match[0], parsed, end, undefined, headingAt(body, start), `line:${source.slice(0, source.length - body.length + start).split(/\r?\n/).length - 1}`);
-    event.sourceLine = source.slice(0, source.length - body.length + start).split(/\r?\n/).length - 1;
+    const sourceLine = sourceLineAt(start);
+    const event = makeEvent(path, milestone || title, tags, match[0], parsed, end, undefined, headingAt(body, start), `line:${sourceLine}`);
+    event.sourceLine = sourceLine;
     event.description = line;
     events.push(event);
   }
@@ -205,14 +210,19 @@ export function parseNote(path: string, source: string, dateProperties: string[]
       for (const match of body.matchAll(regex)) {
         const raw = match[1] ?? match[0];
         const parsed = parseDateValue(raw, eras);
-        if (parsed) events.push(makeEvent(path, title, tags, raw, parsed, null, "content", headingAt(body, match.index ?? 0), `line:${body.slice(0, match.index ?? 0).split(/\r?\n/).length}`));
+        if (parsed) {
+          const start = match.index;
+          const event = makeEvent(path, title, tags, raw, parsed, null, "content", headingAt(body, start), `line:${body.slice(0, start).split(/\r?\n/).length}`);
+          event.sourceLine = sourceLineAt(start);
+          events.push(event);
+        }
         else review.push({ path, title, reason: "unparseable", raw, detail: `Content pattern “${pattern}” matched text that is not a supported date.` });
       }
     } catch (caughtError1) {
 diagnostics.failure("parser.caught_2", caughtError1); review.push({ path, title, reason: "unparseable", detail: `Invalid content pattern “${pattern}”.` }); }
   }
   // A note date repeated by a body milestone is metadata for that event.
-  const bodyEvents = events.filter(event => event.sourceLine !== undefined);
+  const bodyEvents = events.filter(event => event.sourceProperty === undefined);
   const unique = [...new Map(events.filter(event => !(event.sourceProperty === "date" && bodyEvents.some(bodyEvent => bodyEvent.start === event.start && bodyEvent.end === event.end))).map((event) => [event.id, event])).values()];
   if (unique.length === 0 && review.length === 0) review.push({ path, title, reason: "undated", detail: "No configured date property or supported date in content." });
   if (unique.length > 1 && structuredStart && unique.some((event) => event.title === title && event.start !== structuredStart?.timestamp)) {
@@ -224,7 +234,7 @@ diagnostics.failure("parser.caught_2", caughtError1); review.push({ path, title,
 
 export function settingsHash(settings: Pick<import("./types").TimelineSettings, "dateProperties" | "contentPatterns" | "eraLabels">): string {
   return stableId(JSON.stringify({
-    parserRevision: 3,
+    parserRevision: 4,
     dateProperties: settings.dateProperties,
     contentPatterns: settings.contentPatterns,
     eraLabels: settings.eraLabels,

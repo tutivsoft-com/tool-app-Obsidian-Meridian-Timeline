@@ -533,6 +533,7 @@ return diagnostics.guard("main.event_22", () => { this.zoom = Math.min(8, this.z
     this.viewport = root.createDiv("meridian-viewport"); this.viewport.setAttribute("role", "region"); this.viewport.setAttribute("aria-label", "Interactive timeline"); this.eventLayer = this.viewport.createDiv("meridian-event-layer");
     this.statusEl = root.createDiv("meridian-status"); this.statusEl.setAttribute("role", "status");
     root.createDiv("meridian-review");
+    root.createDiv({ cls: "meridian-version-footer", text: `Version ${this.plugin.manifest.version}` });
 
 }; return diagnostics?.run ? diagnostics.run("main.renderShell", diagnosticAction16) : diagnosticAction16();
 }
@@ -572,7 +573,7 @@ return diagnostics.guard("main.event_29", () => { const view = this.plugin.setti
 return diagnostics.guard("main.event_30", () => { this.groupBy = group.value as GroupBy; this.renderEvents();
 });
 });
-    const uncertainty = controls.createEl("label"); const checkbox = uncertainty.createEl("input", { type: "checkbox" }); checkbox.checked = this.filters.uncertainty === "uncertain"; uncertainty.appendText(" uncertain only"); checkbox.addEventListener("change", () => {
+    const uncertainty = controls.createEl("label"); const checkbox = uncertainty.createEl("input", { type: "checkbox" }); checkbox.checked = this.filters.uncertainty === "uncertain"; uncertainty.appendText(" approximate or uncertain only"); checkbox.addEventListener("change", () => {
 return diagnostics.guard("main.event_31", () => { this.filters.uncertainty = checkbox.checked ? "uncertain" : ""; this.renderEvents();
 });
 });
@@ -806,7 +807,10 @@ const a=await import("./constance-account");return await (a.refreshBillingSessio
 diagnosticStage44();
 
     const diagnosticStage45 = diagnostics?.start?.("settings.render.refresh_purchased_balance") ?? (() => {});
-new Setting(containerEl).setName("Refresh balance").addButton((button) => button.setButtonText("Refresh").onClick(async () => {
+const canRefreshBalance = Boolean(this.plugin.settings.billingAccountLinked && this.plugin.settings.billingAccessToken);
+new Setting(containerEl).setName("Refresh balance")
+  .setDesc(canRefreshBalance ? "" : "Connect your account before refreshing your balance.")
+  .addButton((button) => button.setButtonText("Refresh").setDisabled(!canRefreshBalance).onClick(async () => {
 return diagnostics.guard("main.control_45", async () => {
 const diagnosticEnd60 = diagnostics?.start?.("control.refresh_purchased_balance.onClick") ?? (() => {});
 try {
@@ -819,10 +823,10 @@ diagnostics.failure("main.caught_47", caughtError46); new Notice("Balance could 
 diagnosticStage45();
 
     const diagnosticStage46 = diagnostics?.start?.("settings.render.privacy_and_threat_model") ?? (() => {});
-if (advanced) new Setting(containerEl).setName("Privacy").setHeading();
+new Setting(containerEl).setName("Privacy").setHeading();
 diagnosticStage46();
  const diagnosticStage47 = diagnostics?.start?.("settings.render.stage_12") ?? (() => {});
-containerEl.createEl("p", { text: "Notes are read on your device and are never uploaded or edited. Saved timeline data includes note paths, titles, and dates. Account and purchase requests use the account service." });
+containerEl.createEl("p", { text: "Meridian reads notes locally. When Markdown saving is enabled, it adds or updates a marked timeline section in your notes or saves a dedicated timeline note. Saved timelines include note paths, titles, and dates. Account and purchase requests use the account service." });
 diagnosticStage47();
 
     const diagnosticStage48 = diagnostics?.start?.("settings.render.named_views") ?? (() => {});

@@ -67,7 +67,7 @@ return diagnostics.guard("plugin-support.onOpen_1", () => {
     this.titleEl.setText(this.welcome ? "Welcome to " + this.docs.name : this.docs.name + " Help");
     this.contentEl.createEl("p", { text: this.docs.summary });
     const steps = this.contentEl.createEl("ol");
-    ["Open Account to sign in or create an account. Verify your email if prompted.", "Open the timeline. Add a date to a note if no dated notes are found.", "Review the result. Use Undo or the available recovery options if needed."].forEach(text => steps.createEl("li", { text }));
+    ["Open Account to sign in or create an account. Verify your email if prompted.", "Open the timeline. Add a date to a note if no dated notes are found.", "Review the timeline and open a source note to check its dates."].forEach(text => steps.createEl("li", { text }));
     const settings = () => { const target = (this.app as any).setting; target?.open(); target?.openTabById(this.plugin?.manifest.id); this.close(); };
     new Setting(this.contentEl).addButton(button => button.setButtonText("Open account").setCta().onClick(diagnostics.wrap("plugin-support.control_2", settings)))
       .addButton(button => button.setButtonText("Open timeline").onClick(() => {
@@ -85,7 +85,7 @@ return diagnostics.guard("plugin-support.control_3", () => {
     const problems = section("Common problems", ["Email not received? Check spam, confirm the address in Account, then use Connect again after verification. Use the account page for recovery; do not create another account to recover purchases.", ...this.docs.troubleshooting]);
     new Setting(problems).addButton(button => button.setButtonText("Open account").onClick(diagnostics.wrap("plugin-support.control_4", settings)));
     problems.createEl("a", { text: "Forgot password?", href: "https://app.tutivsoft.com/password-reset", attr: { target: "_blank", rel: "noopener noreferrer" } });
-    section("Account and purchases", ["Your remaining free allowance and purchases belong to your account. Your credit balance stays with your account after reinstalling. Current prices are shown in Account. Refresh balance after a delayed payment instead of purchasing again."]);
+    section("Account and purchases", ["Your remaining free allowance and purchases belong to your account. Your credit balance stays with your account after reinstalling. Current prices are shown under Buy credits. Refresh balance after a delayed payment instead of purchasing again."]);
     section("Advanced settings — optional", ["Simple shows everyday controls. Open Settings and choose Advanced for more customization and troubleshooting. Switching views keeps saved preferences."]);
     section("Useful commands", Array.from(new Set([...this.docs.commands, "Open documentation", "Copy diagnostic log"])));
     section("Removing the app", ["Removing this plugin does not undo edits or delete your account. Export anything you want to keep before removing it in Obsidian Settings → Community plugins. Reconnect the same account after reinstalling to restore its remaining allowance and purchases."]);
@@ -239,15 +239,6 @@ diagnostics.failure("plugin-support.rejected_2", rejectedError1); state.flowWelc
   }
 
   addHelpSetting(containerEl: HTMLElement): void {
-    queueMicrotask(() => {
-      try {
-        if (!containerEl.isConnected) return;
-        containerEl.querySelector('.app-version-footer')?.remove();
-        const footer = containerEl.createDiv({cls: 'app-version-footer', text: 'Version ' + this.plugin.manifest.version});
-        footer.style.cssText = 'font-size:0.8em;opacity:0.65;text-align:center;margin-top:12px';
-      } catch { /* Version display cannot interrupt settings. */ }
-    });
-
     new Setting(containerEl).setName("Show automatic windows")
       .setDesc("Open queue, progress, result, and welcome windows automatically. Off by default; status messages remain visible.")
       .addToggle(toggle => toggle.setValue(this.automaticWindowsEnabled()).onChange(async enabled => {
