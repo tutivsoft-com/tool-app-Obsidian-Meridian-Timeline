@@ -20,6 +20,10 @@ Account requests send authentication and billing information to Constance. Passw
 
 Uncertain older billing records are retained and are never replayed as new v2 charges. Connect the original account and contact support if an earlier operation needs recovery.
 
+## Release 3.4.83
+
+Improves timeline settings, date matching, and navigation. [Release on GitHub](https://github.com/tutivsoft-com/tool-app-Obsidian-Meridian-Timeline/releases/tag/3.4.83).
+
 ## Version 3.4.81
 
 Fix timeline date parsing, tag discovery, and inclusive end dates.
